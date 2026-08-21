@@ -1,0 +1,26 @@
+{
+  "name": "@whistzilla/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@whistzilla/coaching": "*",
+    "@whistzilla/game-core": "*",
+    "@whistzilla/strategy": "*",
+    "i18next": "^26.3.6",
+    "lucide-react": "^1.32.0",
+    "motion": "^13.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.11",
+    "react-router-dom": "^7.18.2",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.15"
+  }
+}

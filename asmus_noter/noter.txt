@@ -1,0 +1,10 @@
+1. Der deales alt for hurtigt og man kan ikke se hvad sidste person dealer. Det samme gælder animationerne i byderunden, det går alt for hurtigt
+2. kort skal hedde A, K, Q, J, 10 .. ikke danske
+3. kortene skal ligge i rækkefølge i kulør, fx hjA, hjK, hj7, hj2, rudA, rudJ, rud3, spA, sp2, osv
+4. man skal kunne meld andet end almindelige
+
+
+nye 
+5. man skal kunne bytte kort, den siger bare altid: "fortsæt uden byt", man skal kunne vælge 1, 2 eller 3 kort, og så bytte disse med valgfrie kort på hånden. Man skal vælge kortene man smidder først
+6. man skal kunne melde ALLE mulige meldinger, og UI mæssigt, må det gerne være på en mere elegant måde end at man bare har en kæmpe dropdown med 20 forskellige meldinger. Jeg tænkte måske at man kunne have to dropdowns, 1 med typen af meldingerne, altså, alm, halve, gode, vip, sol, super sol osv osv, og så en anden dropdown med 7,8,9,10,11,12,13 
+7. Overordnet design i øvrigt, jeg havde forestillet mig at man har et homescreen "Whistzilla" hvor man kan vælge 
