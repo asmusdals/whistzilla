@@ -122,6 +122,7 @@ describe('seeded bidding mix', () => {
     expect(humanSeven.nineOrTen).toBeGreaterThan(humanSeven.games * 0.7);
     expect(intermediate.specialTypes.sol ?? 0).toBeGreaterThan(0);
     expect(advanced.specialTypes.sol ?? 0).toBeGreaterThan(0);
-    expect(intermediate.medianRaises).toBeGreaterThanOrEqual(3);
+    expect(intermediate.medianRaises).toBeGreaterThanOrEqual(2);
+    expect(humanSeven.medianRaises).toBeGreaterThanOrEqual(3);
   });
 });

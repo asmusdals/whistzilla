@@ -252,6 +252,34 @@ describe('practical strategy', () => {
     });
   });
 
+  it('discounts Halve when the bidder cannot control the partner-selected trump', () => {
+    const base = projectPlayerView(
+      createGame({ seed: 4, dealer: 3, host: 0 }),
+      0,
+    );
+    const view = {
+      ...base,
+      legalCommands: (['ordinary', 'halves'] as const).map((bidType) => ({
+        type: 'place-bid' as const,
+        actor: 0 as const,
+        expectedRevision: base.revision,
+        bid: { kind: 'numerical' as const, level: 9 as const, bidType },
+      })),
+    };
+    const candidates = analyzeStrategy(view, 'intermediate').candidates;
+    const ordinary = candidates.find(
+      ({ command }) =>
+        command.type === 'place-bid' && command.bid.bidType === 'ordinary',
+    );
+    const halves = candidates.find(
+      ({ command }) =>
+        command.type === 'place-bid' && command.bid.bidType === 'halves',
+    );
+    expect(ordinary).toBeDefined();
+    expect(halves).toBeDefined();
+    expect(halves!.score).toBeLessThan(ordinary!.score);
+  });
+
   it('does not treat an ordinary hand as an automatic special bid', () => {
     const view = projectPlayerView(
       createGame({ seed: 4, dealer: 3, host: 0 }),

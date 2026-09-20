@@ -903,8 +903,7 @@ function expectedNumericalPoints(
 }
 
 function bidEstimate(view: PlayerView, bid: Bid, profile: StrategyProfile) {
-  const calibration =
-    profile === 'beginner' ? -0.25 : profile === 'advanced' ? 0.1 : 0;
+  const calibration = profile === 'beginner' ? -0.25 : 0;
   if (bid.kind === 'special') {
     const safety = specialSafety(view.ownHand) + calibration;
     const breakEvenSafety = {
@@ -937,10 +936,10 @@ function bidEstimate(view: PlayerView, bid: Bid, profile: StrategyProfile) {
     bid.bidType === 'ordinary'
       ? 0
       : bid.bidType === 'halves'
-        ? -0.5
+        ? -0.8
         : bid.bidType === 'good'
           ? -0.4
-          : -0.9;
+          : -1.1;
   const expectedTeamTricks =
     partnershipBaseline +
     (ownStrength - averageHandStrength) * 1.0 +

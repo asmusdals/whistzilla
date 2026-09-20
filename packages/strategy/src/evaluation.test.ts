@@ -26,6 +26,7 @@ function evaluate(
   opponents: StrategyProfile,
   seeds: number,
   forcedOrdinary = false,
+  seedStart = 0,
 ) {
   let points = 0;
   let positiveRounds = 0;
@@ -40,7 +41,15 @@ function evaluate(
   let pointsAsDeclarer = 0;
   let pointsAsDefender = 0;
   let actualTeamTricks = 0;
-  for (let seed = 0; seed < seeds; seed += 1) {
+  const byLevel: Record<
+    string,
+    { games: number; succeeded: number; teamTricks: number }
+  > = {};
+  const byBidType: Record<
+    string,
+    { games: number; succeeded: number; teamTricks: number }
+  > = {};
+  for (let seed = seedStart; seed < seedStart + seeds; seed += 1) {
     for (const seat of [0, 1, 2, 3] as const) {
       let state = createGame({ seed, dealer: 3, host: 0 });
       if (forcedOrdinary) {
@@ -91,8 +100,26 @@ function evaluate(
       if (state.winningBid?.kind === 'numerical') {
         totalLevel += state.winningBid.level;
         successfulNumerical += Number(state.score?.contractSucceeded);
-        if (state.score && 'declarerTeamTricks' in state.score)
+        const level = String(state.winningBid.level);
+        const levelSummary = (byLevel[level] ??= {
+          games: 0,
+          succeeded: 0,
+          teamTricks: 0,
+        });
+        levelSummary.games += 1;
+        levelSummary.succeeded += Number(state.score?.contractSucceeded);
+        const typeSummary = (byBidType[state.winningBid.bidType] ??= {
+          games: 0,
+          succeeded: 0,
+          teamTricks: 0,
+        });
+        typeSummary.games += 1;
+        typeSummary.succeeded += Number(state.score?.contractSucceeded);
+        if (state.score && 'declarerTeamTricks' in state.score) {
           actualTeamTricks += state.score.declarerTeamTricks;
+          levelSummary.teamTricks += state.score.declarerTeamTricks;
+          typeSummary.teamTricks += state.score.declarerTeamTricks;
+        }
         bidTypes[state.winningBid.bidType] =
           (bidTypes[state.winningBid.bidType] ?? 0) + 1;
       }
@@ -118,6 +145,8 @@ function evaluate(
     pointsAsDeclarer,
     pointsAsDefender,
     meanTeamTricks: actualTeamTricks / Math.max(1, numerical),
+    byLevel,
+    byBidType,
   };
 }
 
@@ -126,11 +155,30 @@ describe('rotated seeded bot evaluation', () => {
     'measures the three difficulty levels without using human replays',
     () => {
       const seeds = process.env.WHISTZILLA_EVAL_REPORT === '1' ? 128 : 32;
-      const intermediate = evaluate('intermediate', 'beginner', seeds);
-      const advanced = evaluate('advanced', 'intermediate', seeds);
-      const fixedContract = evaluate('advanced', 'intermediate', seeds, true);
+      const seedStart = Number(process.env.WHISTZILLA_EVAL_SEED_START ?? 0);
+      const intermediate = evaluate(
+        'intermediate',
+        'beginner',
+        seeds,
+        false,
+        seedStart,
+      );
+      const advanced = evaluate(
+        'advanced',
+        'intermediate',
+        seeds,
+        false,
+        seedStart,
+      );
+      const fixedContract = evaluate(
+        'advanced',
+        'intermediate',
+        seeds,
+        true,
+        seedStart,
+      );
       if (process.env.WHISTZILLA_EVAL_REPORT === '1')
-        console.info({ intermediate, advanced, fixedContract });
+        console.info(JSON.stringify({ intermediate, advanced, fixedContract }));
       expect(intermediate.games).toBe(seeds * 4);
       expect(advanced.games).toBe(seeds * 4);
       expect(intermediate.meanPoints).toBeGreaterThan(0);
@@ -138,6 +186,12 @@ describe('rotated seeded bot evaluation', () => {
       expect(advanced.numerical).toBeGreaterThan(seeds * 3.5);
       expect(advanced.meanLevel).toBeGreaterThan(8.5);
       expect(advanced.meanLevel).toBeLessThan(10.5);
+      expect(
+        intermediate.successfulNumerical / intermediate.numerical,
+      ).toBeGreaterThan(0.42);
+      expect(advanced.successfulNumerical / advanced.numerical).toBeGreaterThan(
+        0.34,
+      );
       expect(advanced.positiveRoundRate).toBeGreaterThan(0.55);
       expect(fixedContract.meanPoints).toBeGreaterThan(0);
     },
