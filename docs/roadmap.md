@@ -129,7 +129,7 @@ Refine card readability, typography, spacing, feedback, sound controls, reduced 
 
 ## Milestone 15: Human Multiplayer
 
-**Status:** Started with the product-owner request, the service design in `docs/multiplayer.md`, and a framework-free `@whistzilla/multiplayer` room service. It issues private seat tokens, blocks actions until four seats are occupied, validates commands through the game core, and returns only seat projections. Durable storage, transport, invite URL UI, and public deployment remain. The current static Training client is still local-only.
+**Status:** The first local playable room flow is implemented. Public named lobbies, link join, private seat tokens, automatic bot seats, host start/end, turn/disconnect deadlines, next-round bot replacement, cumulative scoring, chat, and responsive room UI run against a Cloudflare Worker and SQLite-backed Durable Object in local development. The Worker persists authoritative snapshots, validates indexed legal actions, and returns only each seat's projection without old card-play history. Browser and full-round API tests pass locally. Public deployment, production API configuration, free-quota observation, and broader reconnect/abuse testing remain; Cloudflare is not yet authenticated on this machine. See `docs/multiplayer.md`.
 
 Build a separate authoritative service for four humans, private rooms, shareable invite links, reconnect, hidden-card projections, server validation, persistence, and abuse controls. Deliver the first playable room flow before native packaging. Select transport and hosting as part of this milestone.
 

@@ -1,0 +1,231 @@
+.multi-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px clamp(16px, 4vw, 42px) 64px;
+  color: #f7f4e9;
+}
+
+.multi-page button,
+.multi-page input {
+  font: inherit;
+}
+.multi-page button {
+  cursor: pointer;
+}
+.multi-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.multi-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.multi-header h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+}
+.multi-header a {
+  color: #e9c989;
+}
+.multi-intro {
+  max-width: 620px;
+  opacity: 0.82;
+}
+.multi-panel,
+.multi-actions {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid rgba(239, 221, 184, 0.25);
+  border-radius: 18px;
+  background: rgba(10, 39, 31, 0.76);
+}
+.multi-panel h2,
+.multi-actions h3 {
+  margin: 0 0 12px;
+}
+.multi-field {
+  display: grid;
+  gap: 8px;
+  max-width: 420px;
+  margin: 12px 0;
+}
+.multi-field input,
+.multi-chat input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 10px 12px;
+  color: #18271e;
+  background: #fffdf5;
+  border: 1px solid #c3c5b8;
+  border-radius: 10px;
+}
+.multi-page button,
+.multi-table-link {
+  border: 1px solid rgba(255, 245, 220, 0.38);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #fff9e9;
+  background: #254a39;
+}
+.multi-page button:hover:not(:disabled),
+.multi-table-link:hover {
+  background: #35654b;
+}
+.multi-page button:focus-visible,
+.multi-page a:focus-visible,
+.multi-page input:focus-visible {
+  outline: 3px solid #f2c56d;
+  outline-offset: 2px;
+}
+.multi-page .multi-primary {
+  background: #c28d39;
+  color: #132a20;
+  border-color: #e8bd6f;
+  font-weight: 700;
+}
+.multi-page .multi-primary:hover:not(:disabled) {
+  background: #e3ae5b;
+}
+.multi-table-list {
+  display: grid;
+  gap: 10px;
+}
+.multi-table-link {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  text-decoration: none;
+}
+.multi-table-link span {
+  opacity: 0.8;
+}
+.multi-error {
+  padding: 12px 16px;
+  border: 1px solid #f6a19a;
+  border-radius: 10px;
+  color: #ffdbd7;
+  background: #652f2f;
+}
+.multi-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.multi-toolbar span {
+  font-weight: 700;
+  margin-right: auto;
+}
+.multi-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.multi-scoreboard > div {
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.multi-scoreboard span,
+.multi-scoreboard small {
+  opacity: 0.82;
+}
+.multi-game-status {
+  display: flex;
+  align-items: center;
+  gap: 8px 20px;
+  flex-wrap: wrap;
+}
+.multi-game-status strong {
+  font-size: 1.16rem;
+}
+.multi-bid-history p {
+  line-height: 1.6;
+}
+.multi-bids,
+.multi-simple-actions,
+.multi-hand,
+.multi-trick > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.multi-bids {
+  max-height: 210px;
+  overflow: auto;
+  padding-right: 4px;
+}
+.multi-bids button {
+  white-space: nowrap;
+}
+.multi-hand {
+  margin-top: 12px;
+}
+.multi-hand button,
+.multi-hand span {
+  min-width: 56px;
+  text-align: center;
+  background: #f8f3e5;
+  color: #21392c;
+  font-weight: 700;
+}
+.multi-hand button:hover:not(:disabled),
+.multi-hand button.selected {
+  background: #f0cb80;
+  color: #1f301f;
+}
+.multi-hand span {
+  padding: 10px 8px;
+  border-radius: 9px;
+}
+.multi-trick span {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.multi-chat {
+  max-width: 100%;
+}
+.multi-messages {
+  height: 180px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  gap: 4px;
+}
+.multi-messages p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.multi-chat form {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.multi-chat input {
+  flex: 1;
+}
+.multi-waiting {
+  opacity: 0.75;
+}
+
+@media (max-width: 650px) {
+  .multi-scoreboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .multi-table-link {
+    flex-direction: column;
+  }
+  .multi-chat form {
+    flex-wrap: wrap;
+  }
+}

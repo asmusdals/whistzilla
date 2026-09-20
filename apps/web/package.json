@@ -12,6 +12,7 @@
     "@radix-ui/react-dialog": "^1.1.23",
     "@whistzilla/coaching": "*",
     "@whistzilla/game-core": "*",
+    "@whistzilla/multiplayer": "*",
     "@whistzilla/strategy": "*",
     "i18next": "^26.3.6",
     "lucide-react": "^1.32.0",

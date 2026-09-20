@@ -45,6 +45,10 @@ import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 
 import { CARD_RANK_LABELS, compareHandCards } from './cards/presentation';
 import {
+  MultiplayerLobbyPage,
+  MultiplayerRoomPage,
+} from './multiplayer/MultiplayerPage';
+import {
   archiveCompletedGame,
   clearActiveGame,
   EMPTY_MATCH_PROGRESS,
@@ -63,6 +67,8 @@ const BOT_PLAY_DELAY_MS = 320;
 const COMPLETED_TRICK_DELAY_MS = 950;
 const DEAL_CARD_DELAY_MS = 110;
 const PLAYER_NAMES = ['Dig', 'Ronaldo', 'Layla', 'Messi'] as const;
+const MULTIPLAYER_ENABLED =
+  import.meta.env.DEV || Boolean(import.meta.env.VITE_MULTIPLAYER_API_URL);
 const SUITS = {
   clubs: { symbol: '♣', label: 'Klør' },
   diamonds: { symbol: '♦', label: 'Ruder' },
@@ -1005,18 +1011,29 @@ function HomePage() {
             <small>Spil mod tre bots med hints og beslutningsreview.</small>
           </span>
         </Link>
-        <div className="mode-card mode-card-disabled" aria-disabled="true">
-          <span className="mode-icon" aria-hidden="true">
-            <Users size={28} />
-          </span>
-          <span>
-            <strong>Multiplayer</strong>
-            <small>
-              Del et spil via link. Udvikles som næste store feature.
-            </small>
-          </span>
-          <em>Under planlægning</em>
-        </div>
+        {MULTIPLAYER_ENABLED ? (
+          <Link className="mode-card" to="/multiplayer">
+            <span className="mode-icon" aria-hidden="true">
+              <Users size={28} />
+            </span>
+            <span>
+              <strong>Multiplayer</strong>
+              <small>
+                Opret et bord, del et link, og spil med mennesker og bots.
+              </small>
+            </span>
+          </Link>
+        ) : (
+          <div className="mode-card mode-card-disabled" aria-disabled="true">
+            <span className="mode-icon" aria-hidden="true">
+              <Users size={28} />
+            </span>
+            <span>
+              <strong>Multiplayer</strong>
+              <small>Åbner, når den gratis spilserver er forbundet.</small>
+            </span>
+          </div>
+        )}
         <Link className="mode-card" to="/points">
           <span className="mode-icon" aria-hidden="true">
             <Calculator size={28} />
@@ -1772,6 +1789,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/training" element={<GamePage />} />
+        <Route path="/multiplayer" element={<MultiplayerLobbyPage />} />
+        <Route path="/multiplayer/:tableId" element={<MultiplayerRoomPage />} />
         <Route path="/points" element={<PointsCalculatorPage />} />
         <Route path="*" element={<HomePage />} />
       </Routes>

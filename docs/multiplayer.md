@@ -1,47 +1,88 @@
-# Human multiplayer: first playable room
+# Human multiplayer
 
-Product-owner input (2026-09-19): players should be able to share a link and
-join the same game with other humans. This is the next major milestone before
-native packaging. The existing Training route remains a local bot game until
-the room flow is playable end to end.
+## Product decisions (2026-09-20)
 
-## First delivery slice
+- The multiplayer landing page lists named active tables. A shareable link opens
+  a specific table. Anyone with the link may join; accounts and passwords are
+  not required. Each visitor enters a gamertag.
+- Seats are assigned clockwise in order of joining. The table creator starts
+  the session. Every empty seat is played by an Intermediate bot, so one person
+  can start immediately. A newcomer during a round waits for an available bot
+  seat at the next round boundary.
+- Scores persist across rounds and the dealer rotates after each completed
+  round. The creator may end the session; if the creator leaves, another seated
+  human becomes host. A completed round is shown briefly before the following
+  one starts automatically.
+- A player has 45 seconds per decision. On a card turn, timeout selects a
+  random legal card; for bidding and setup the server chooses a legal bot
+  action. A disconnected player's place remains reserved for one minute, then
+  a bot takes over. The player can reconnect with a private local browser token
+  and re-enter at the next round if the seat has been released.
+- Chat is available in the lobby and at the table. Hints, coaching, and
+  decision review are absent from multiplayer. The UI shows bids, scores,
+  trick counts, and the current trick. Four cards from a completed trick remain
+  visible for 2.5 seconds; old card-by-card trick history is not returned to
+  multiplayer clients.
+- The first deployment must use free plans only. Free quotas may temporarily
+  interrupt service when exhausted; there is no automatic paid upgrade.
 
-1. Create a private four-seat room on an authoritative service. Return a
-   shareable invite URL containing only an opaque room identifier. The link
-   opens a lobby where a visitor claims an available seat.
-2. Issue each seated player a separate unguessable reconnect token. Keep the
-   token out of the invite URL so sharing the room never shares a seat or hand.
-3. Start after four humans have joined. The server creates the seeded
-   `GameState`, validates each versioned `GameCommand` through `applyCommand`,
-   and rejects stale revisions and wrong-seat actions.
-4. Send each client `projectPlayerView(state, seat)` and public events only.
-   Never send raw `GameState`, other hands, unrevealed kitty cards, or private
-   commands. A reconnect obtains a fresh projection and public event cursor.
-5. Persist a snapshot plus accepted command log per room, with expiry and an
-   idempotent revision key. A server restart must not change the game or seat
-   ownership. Add rate limits and room cleanup before public deployment.
-6. Test four browsers joining through one link, a complete round, reconnect,
-   stale and wrong-seat commands, and byte-level absence of hidden cards in
-   responses to each seat.
+## Implemented boundaries
 
-## Boundaries and open deployment work
+`@whistzilla/multiplayer` now provides `TableService`, a framework-free
+authoritative session manager built on `GameState`, `applyCommand`,
+`projectPlayerView`, and strategy decisions derived only from a bot's own
+projection. It tracks room names, seats, private reconnect tokens, waiting
+players, chat, round totals, dealer rotation, deadlines, and idle expiry. The
+older `RoomService` remains for its original four-human test boundary; new
+rooms use `TableService`.
 
-The current Netlify setup serves a static Vite client. A separate service and
-durable store must be selected and deployed for rooms; a frontend-only invite
-link cannot synchronize or protect four players' cards. The service consumes
-the existing framework-free core. Transport choice (WebSocket or event stream
-plus POST), hosting, storage, and room expiry should be selected when the first
-server slice is built and recorded in `docs/architecture.md`.
+`apps/multiplayer-api` wraps a single low-traffic `TableService` in a
+SQLite-backed Cloudflare Durable Object. It stores a JSON snapshot after every
+mutation, including all authoritative hands and private tokens. The Worker
+uses HTTP endpoints for lobby, join, seat view, start, indexed legal action,
+chat, and end. A Durable Object alarm handles deadlines when browsers are not
+polling. The browser polls every five seconds and sends a legal-command index
+and expected revision; the server maps that index to the current projected
+legal command before applying it. The browser never submits arbitrary game
+state or sees another player's unrevealed hand.
 
-The initial `@whistzilla/multiplayer` package implements the synchronous room
-boundary in memory and tests seat ownership, stale revisions, and per-seat
-information isolation. It is not a deployed service: process restarts currently
-lose rooms, and there is no HTTP endpoint or join link yet. The next slice
-should wrap this boundary in durable storage and a transport, then wire the
-existing home entry to a room lobby.
+The UI is under `/multiplayer` and `/multiplayer/:tableId`. Local Vite
+development proxies `/api/tables` to the Worker running at port 8787. A
+production build enables the multiplayer home link only when
+`VITE_MULTIPLAYER_API_URL` is set to the deployed Worker URL. Netlify remains
+the static frontend host; Cloudflare Workers Free and Durable Objects Free are
+the planned authoritative backend. The API URL is public configuration, while
+each private seat token is stored only in that browser's local storage and
+sent in an Authorization header. The invite link carries only the room ID.
 
-The `PlayerView` contract must remain the sole game data sent to a seat. Any
-new public information rule, including the revised Super bordlægger exposure,
-must be enforced in `game-core` projections and covered by leak tests before
-the multiplayer service is opened to external clients.
+The current snapshot is the recovery source after a Worker restart. The first
+version does not expose replay history or persist an append-only command log.
+The game core still handles all deterministic rule validation and scoring.
+
+## Local verification and remaining deployment step
+
+```sh
+npm install
+npm run dev --workspace @whistzilla/multiplayer-api
+npm run dev -- --host 127.0.0.1
+npm run test:e2e:multiplayer
+node apps/multiplayer-api/smoke.mjs
+```
+
+The smoke script plays a full round with four seats, checks hidden hands in
+every response (except a rule-authorized open declarer hand), scoring, chat,
+and host end. The browser test covers two clients, bots in unfilled seats,
+chat, and refresh on desktop and mobile. `TableService` unit tests cover
+wrong-seat commands, timeout, disconnection, waiting, and brief trick display.
+
+Cloudflare deployment still needs the product owner's free Cloudflare account
+to be connected with `wrangler login`. `wrangler deploy --dry-run` builds the
+Worker locally. Once connected, deploy `apps/multiplayer-api`, set the Netlify
+build variable `VITE_MULTIPLAYER_API_URL` to its Worker URL, and deploy the web
+branch. Do not merge the client to production with an unset API URL and expect
+multiplayer to work. Verify the free plan and usage limits in the dashboard
+before public launch. Current provider references:
+
+- [Cloudflare Durable Objects Free pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
+- [Cloudflare Workers Free limits](https://developers.cloudflare.com/workers/platform/limits/)
+- [Netlify Free pricing](https://www.netlify.com/pricing/)

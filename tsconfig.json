@@ -6,8 +6,10 @@
   },
   "include": [
     "e2e",
+    "e2e-multiplayer",
     "eslint.config.js",
     "playwright.config.ts",
+    "playwright.multiplayer.config.ts",
     "playwright.running-server.config.ts",
     "vitest.config.ts"
   ]
