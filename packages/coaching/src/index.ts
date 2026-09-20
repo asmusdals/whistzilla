@@ -24,6 +24,13 @@ export interface CoachingReport {
   readonly knowledge: PerspectiveKnowledge;
 }
 
+const SUIT_LABELS: Readonly<Record<Suit, string>> = {
+  clubs: 'klør',
+  diamonds: 'ruder',
+  hearts: 'hjerter',
+  spades: 'spar',
+};
+
 function visibleFacts(
   view: PlayerView,
   knowledge: PerspectiveKnowledge,
@@ -44,7 +51,7 @@ function visibleFacts(
     ([seat, suits]) =>
       suits.map((suit: Suit) => ({
         kind: 'inferred' as const,
-        text: `Spiller ${Number(seat) + 1} er sikkert renonce i ${suit}`,
+        text: `Spiller ${Number(seat) + 1} er sikkert renonce i ${SUIT_LABELS[suit]}`,
       })),
   );
   return [...facts, ...voidFacts];

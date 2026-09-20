@@ -30,11 +30,16 @@ Human online multiplayer, accounts, authentication, shared cloud saves, and serv
 
 ## Initial Game Experience
 
+- A Whistzilla home screen routes to Training, a shared-rules points calculator,
+  and a clearly labelled future Multiplayer area.
+- The points calculator covers every numerical and special contract supported by
+  the core, including Vip reveal count and provisional one-against-three deltas.
 - Exactly four seats: one human and three bots.
 - A complete local game from deal through scoring, once all rules are specified.
 - Clear bidding and card-play controls that allow only legal actions.
 - Readable cards, strong touch targets, keyboard support where appropriate, and restrained interaction feedback.
 - Local settings, automatic game resume, and completed replay logs without an account.
+- Persisted cumulative point accounting and dealer rotation across completed rounds.
 - Deterministic replay of a recorded game for debugging and learning.
 
 ## Assistance Modes
@@ -87,13 +92,17 @@ No assistance mode may reveal cards that were never visible to the evaluated pla
 - Strategy output is legal, deterministic for a fixed view/profile/seed, and explainable.
 - Automated tests guard rules and hidden-information boundaries.
 
-## Non-Goals For Initial Milestones
+## Non-Goals For The Initial Local-Training Milestones
 
 - Human online multiplayer or spectators.
 - Accounts, authentication, cloud sync, leaderboards, or social systems.
 - A general-purpose backend or database.
 - Theoretically perfect play, heavyweight Monte Carlo search, or machine learning.
 - Native iOS or Android projects before the web PWA is stable.
+
+The Multiplayer entry on the home screen remains informational until the next
+major milestone delivers a playable authoritative room flow; see
+`docs/multiplayer.md`.
 
 ## Open Product Decisions
 

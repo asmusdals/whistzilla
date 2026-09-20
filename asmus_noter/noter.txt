@@ -1,10 +1,30 @@
-1. Der deales alt for hurtigt og man kan ikke se hvad sidste person dealer. Det samme gælder animationerne i byderunden, det går alt for hurtigt
-2. kort skal hedde A, K, Q, J, 10 .. ikke danske
-3. kortene skal ligge i rækkefølge i kulør, fx hjA, hjK, hj7, hj2, rudA, rudJ, rud3, spA, sp2, osv
-4. man skal kunne meld andet end almindelige
+19/9 noter
+NOTER TIL ÆNDRINGER I APPEN
 
+1. Budgivning / sværhedsgrad
 
-nye 
-5. man skal kunne bytte kort, den siger bare altid: "fortsæt uden byt", man skal kunne vælge 1, 2 eller 3 kort, og så bytte disse med valgfrie kort på hånden. Man skal vælge kortene man smidder først
-6. man skal kunne melde ALLE mulige meldinger, og UI mæssigt, må det gerne være på en mere elegant måde end at man bare har en kæmpe dropdown med 20 forskellige meldinger. Jeg tænkte måske at man kunne have to dropdowns, 1 med typen af meldingerne, altså, alm, halve, gode, vip, sol, super sol osv osv, og så en anden dropdown med 7,8,9,10,11,12,13 
-7. Overordnet design i øvrigt, jeg havde forestillet mig at man har et homescreen "Whistzilla" hvor man kan vælge 
+Uanset om spillet står på let, øvet eller svær, virker det som om modstanderne bliver ved med at forsøge at overbyde spilleren.
+
+Det betyder, at budgivningen ofte ender meget højt, eksempelvis i en superbordlægger. Det er meget usædvanligt i et normalt spil.
+
+Budlogikken skal derfor justeres, så modstanderne oftere stopper budgivningen tidligere og ikke automatisk fortsætter med at presse meldingen højere og højere.
+
+Der skal tages stilling til, hvordan sandsynligheden for at byde videre skal fungere på de forskellige sværhedsgrader.
+
+2. Bordlægger / superbordlægger – synlige kort
+
+Ved en bordlægger eller superbordlægger skal man kun kunne se kortene hos den spiller, der har kaldt bordlæggerens kort.
+
+Man skal ikke kunne se alle de øvrige spilleres kort.
+
+Visningen skal derfor ændres, så det kun er den relevante spillers kort, der bliver vist.
+
+3. Multiplayer-feature
+
+Der skal udvikles en multiplayer-feature.
+
+Målet er, at man kan offentliggøre eller dele et link, som andre spillere kan åbne for at komme direkte ind i et spil.
+
+På den måde skal flere rigtige mennesker kunne spille sammen i samme spil via et delt link.
+
+Multiplayer-feature skal påbegyndes som en af de næste større features.

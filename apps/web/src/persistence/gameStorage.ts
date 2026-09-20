@@ -1,11 +1,13 @@
-import type { ReplayRecord } from '@whistzilla/game-core';
+import { replayGame, type ReplayRecord } from '@whistzilla/game-core';
 import { z } from 'zod';
 
 const DATABASE_NAME = 'whistzilla';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const ACTIVE_STORE = 'active-game';
 const REPLAY_STORE = 'completed-replays';
+const MATCH_STORE = 'match-progress';
 const ACTIVE_KEY = 'current';
+const MATCH_KEY = 'current';
 
 const seatSchema = z.union([
   z.literal(0),
@@ -48,6 +50,13 @@ const commandSchema = z.discriminatedUnion('type', [
     cardId: z.string().min(1),
   }),
   z.object({ ...commandBase, type: z.literal('skip-exchange') }),
+  z.object({ ...commandBase, type: z.literal('reveal-vip-card') }),
+  z.object({ ...commandBase, type: z.literal('stop-vip') }),
+  z.object({
+    ...commandBase,
+    type: z.literal('exchange-cards'),
+    discardedCardIds: z.array(z.string().min(1)).min(1).max(3),
+  }),
   z.object({
     ...commandBase,
     type: z.literal('play-card'),
@@ -68,12 +77,32 @@ const archivedReplaySchema = z.object({
   completedAt: z.string().datetime(),
   record: replayRecordSchema,
 });
+const matchProgressSchema = z.object({
+  scores: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  rounds: z.number().int().nonnegative(),
+  nextDealer: seatSchema,
+  lastScoredSeed: z.number().int().nonnegative().nullable(),
+});
 
 export interface ArchivedReplay {
   readonly id: string;
   readonly completedAt: string;
   readonly record: ReplayRecord;
 }
+
+export interface MatchProgress {
+  readonly scores: readonly [number, number, number, number];
+  readonly rounds: number;
+  readonly nextDealer: 0 | 1 | 2 | 3;
+  readonly lastScoredSeed: number | null;
+}
+
+export const EMPTY_MATCH_PROGRESS: MatchProgress = {
+  scores: [0, 0, 0, 0],
+  rounds: 0,
+  nextDealer: 3,
+  lastScoredSeed: null,
+};
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -102,6 +131,9 @@ async function openDatabase(): Promise<IDBDatabase> {
     }
     if (!database.objectStoreNames.contains(REPLAY_STORE)) {
       database.createObjectStore(REPLAY_STORE, { keyPath: 'id' });
+    }
+    if (!database.objectStoreNames.contains(MATCH_STORE)) {
+      database.createObjectStore(MATCH_STORE);
     }
   };
   return requestResult(request);
@@ -146,6 +178,36 @@ export async function clearActiveGame(): Promise<void> {
   }
 }
 
+export async function loadMatchProgress(): Promise<MatchProgress> {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MATCH_STORE, 'readonly');
+    const raw: unknown = await requestResult<unknown>(
+      transaction.objectStore(MATCH_STORE).get(MATCH_KEY),
+    );
+    await transactionComplete(transaction);
+    return raw === undefined
+      ? EMPTY_MATCH_PROGRESS
+      : matchProgressSchema.parse(raw);
+  } finally {
+    database.close();
+  }
+}
+
+export async function saveMatchProgress(
+  progress: MatchProgress,
+): Promise<void> {
+  const validated = matchProgressSchema.parse(progress);
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(MATCH_STORE, 'readwrite');
+    transaction.objectStore(MATCH_STORE).put(validated, MATCH_KEY);
+    await transactionComplete(transaction);
+  } finally {
+    database.close();
+  }
+}
+
 export async function archiveCompletedGame(
   record: ReplayRecord,
 ): Promise<void> {
@@ -175,9 +237,19 @@ export async function listCompletedGames(): Promise<readonly ArchivedReplay[]> {
       transaction.objectStore(REPLAY_STORE).getAll(),
     );
     await transactionComplete(transaction);
-    return (z.array(archivedReplaySchema).parse(raw) as ArchivedReplay[]).sort(
-      (left, right) => right.completedAt.localeCompare(left.completedAt),
-    );
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .flatMap((candidate): ArchivedReplay[] => {
+        const parsed = archivedReplaySchema.safeParse(candidate);
+        if (!parsed.success) return [];
+        try {
+          replayGame(parsed.data.record as ReplayRecord);
+          return [parsed.data as ArchivedReplay];
+        } catch {
+          return [];
+        }
+      })
+      .sort((left, right) => right.completedAt.localeCompare(left.completedAt));
   } finally {
     database.close();
   }

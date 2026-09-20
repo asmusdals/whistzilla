@@ -5,10 +5,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   archiveCompletedGame,
   clearActiveGame,
+  EMPTY_MATCH_PROGRESS,
   listCompletedGames,
   loadActiveGame,
+  loadMatchProgress,
   resetGameStorage,
   saveActiveGame,
+  saveMatchProgress,
 } from './gameStorage';
 
 const record: ReplayRecord = {
@@ -35,10 +38,49 @@ describe('game storage', () => {
     expect(loaded && replayGame(loaded)).toEqual(replayGame(record));
   });
 
+  it('loads legacy exchange commands without preserving a kitty choice', async () => {
+    const legacy = {
+      ...record,
+      commands: [
+        ...record.commands,
+        {
+          type: 'exchange-cards',
+          actor: 0,
+          expectedRevision: 1,
+          discardedCardIds: ['clubs:two'],
+          kittyCardIds: ['joker:1'],
+        },
+      ],
+    } as unknown as ReplayRecord;
+
+    await saveActiveGame(legacy);
+    const loaded = await loadActiveGame();
+    expect(loaded?.commands.at(-1)).toEqual({
+      type: 'exchange-cards',
+      actor: 0,
+      expectedRevision: 1,
+      discardedCardIds: ['clubs:two'],
+    });
+  });
+
   it('clears the active game', async () => {
     await saveActiveGame(record);
     await clearActiveGame();
 
+    expect(await loadActiveGame()).toBeNull();
+  });
+
+  it('persists cumulative scores and the next dealer separately from replay', async () => {
+    expect(await loadMatchProgress()).toEqual(EMPTY_MATCH_PROGRESS);
+    const progress = {
+      scores: [6, -2, -2, -2] as const,
+      rounds: 1,
+      nextDealer: 0 as const,
+      lastScoredSeed: 42,
+    };
+
+    await saveMatchProgress(progress);
+    expect(await loadMatchProgress()).toEqual(progress);
     expect(await loadActiveGame()).toBeNull();
   });
 

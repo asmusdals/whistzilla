@@ -36,7 +36,6 @@ export interface BiddingState {
   readonly actor: Seat;
   readonly currentBid: Bid | null;
   readonly bidHolder: Seat | null;
-  readonly waitingSeats: readonly Seat[];
   readonly passedSeats: readonly Seat[];
 }
 

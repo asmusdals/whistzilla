@@ -1,6 +1,9 @@
 # Whistzilla
 
-Whistzilla is a four-player Whist game and learning application. The repository is currently at the project-foundation milestone; gameplay is not implemented yet.
+Whistzilla is a four-player Whist game and learning application. The current
+local version supports complete rounds against three bots, every documented
+contract family, contract setup and exchange, scoring, local resume and replay,
+coaching modes, a points calculator, and an installable PWA shell.
 
 ## Requirements
 
@@ -14,7 +17,8 @@ npm install
 npm run dev
 ```
 
-The local Vite URL is printed in the terminal.
+The local Vite URL is printed in the terminal. By default it is normally
+`http://127.0.0.1:5173/`.
 
 ## Quality Checks
 
@@ -36,4 +40,6 @@ Playwright uses a locally installed Google Chrome outside CI. GitHub Actions ins
 - `docs/architecture.md` defines package boundaries and information safety.
 - `docs/roadmap.md` defines the implementation sequence.
 
-Do not implement unresolved game behavior by assuming rules from another Whist variant.
+The current implementation uses the explicitly documented provisional policies
+for rules marked `⚠️ AFKLARES`. Do not silently replace those policies or assume
+rules from another Whist variant.

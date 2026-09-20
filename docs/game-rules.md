@@ -137,6 +137,11 @@ Eksempel:
 
 Spiller 1 vinder meldingen med 7 almindelige.
 
+**Praktisk spilleforventning, bekræftet 2026-08-21:** Eksemplet er lovligt,
+men meget sjældent i normalt spil. 7 almindelige er en meget lav melding, og
+byderunden fortsætter som udgangspunkt væsentligt længere. Bots skal afspejle
+dette uden at gøre et højere bud obligatorisk.
+
 ---
 
 ## 4.3 Melderækkefølge
@@ -148,13 +153,16 @@ Meldingen starter hos spiller 1 og fortsætter:
 3. spiller 3
 4. spiller 4
 
-Der **meldes tilbage** mellem aktive bydere.
+Rækkefølgen går **altid med uret**, også når en spiller overbyder en anden.
+Et bud sender derfor turen til den næste aktive spiller med uret; turen springer
+aldrig direkte tilbage til den forrige højeste melder. Spillere, der har meldt
+pas, springes over. Dette fortsætter, indtil kun den vindende melder er tilbage.
 
-Det betyder, at to spillere melder mod hinanden, indtil den ene melder pas.
+Eksempel:
 
-Den tilbageværende spiller fortsætter derefter mod den næste spiller i rækkefølgen.
-
-Dette fortsætter, indtil kun den vindende melder er tilbage.
+- spiller 1: 7 almindelige
+- spiller 2: 8 gode
+- næste tur er altid spiller 3, derefter spiller 4 og først derefter spiller 1
 
 ---
 
@@ -364,7 +372,8 @@ kan det foregående kort bruges til at bestemme trumf.
 
 I dette eksempel bliver trumfen derfor hjerter.
 
-**⚠️ AFKLARES:** Bekræft præcis jokeradfærd i denne situation.
+**⚠️ AFKLARES:** Foreløbig regel, bekræftet 2026-08-21: Det foregående
+almindelige kort bestemmer trumf. Reglen skal genbesøges.
 
 ---
 
@@ -372,9 +381,9 @@ I dette eksempel bliver trumfen derfor hjerter.
 
 **⚠️ AFKLARES:** Det er endnu ikke endeligt besluttet, hvad der sker, hvis det allerførste kort, der vendes i Vip, er en joker.
 
-Foreløbig mulighed:
+Foreløbig regel, bekræftet 2026-08-21:
 
-Jokeren springes over, og næste bytter vendes.
+Melderen vælger frit en af de fire kulører som trumf.
 
 Denne adfærd må ikke betragtes som endelig, før reglen er bekræftet.
 
@@ -396,7 +405,12 @@ De kort, spilleren ønsker at aflevere, lægges fra hånden, og spilleren tager 
 
 **⚠️ AFKLARES:** Det skal bekræftes, om en spiller frit kan vælge at bytte 0, 1, 2 eller 3 kort, eller om der gælder en "alt eller intet"-regel.
 
-Foreløbig bør engine-arkitekturen kunne understøtte begge muligheder.
+Foreløbig standard, godkendt som produktinput 2026-08-21: Spilleren kan
+frit vælge at bytte 0, 1, 2 eller 3 kort. Spilleren vælger først kortene, der
+afleveres fra hånden. Spilleren må ikke se eller vælge de nye kort fra bytterne;
+samme antal tages skjult og vises først, når bytningen er gennemført.
+Engine-policyen skal fortsat kunne udskiftes, hvis den endelige regel bliver
+"alt eller intet".
 
 ---
 
@@ -490,7 +504,9 @@ Makkeresset skal falde første gang makkeressets kulør bliver spillet.
 
 Dette gælder også, hvis makkeren selv spiller kuløren ud.
 
-**⚠️ AFKLARES:** Hvis makkeren har både makkeresset og andre kort i samme kulør, skal det bekræftes, om makkeren altid er tvunget til at spille selve esset første gang kuløren spilles.
+**⚠️ AFKLARES:** Foreløbig regel, bekræftet 2026-08-21: Makkeren er altid
+tvunget til at spille selve makkeresset første gang kuløren spilles, også hvis
+makkeren har andre kort i kuløren. Reglen skal genbesøges.
 
 ---
 
@@ -597,9 +613,9 @@ Jokeren vinder altså ikke stikket.
 
 ## 22.3 Joker og bekendelsespligt
 
-**⚠️ AFKLARES:** Den foreløbige forståelse er, at jokeren ikke har nogen kulør og derfor behandles særskilt i forhold til bekendelsespligten.
-
-Det skal bekræftes præcist, hvornår en joker må spilles, hvis spilleren ellers kan bekende den udspillede kulør.
+**⚠️ AFKLARES:** Foreløbig regel, bekræftet 2026-08-21: Jokeren har ingen
+kulør, men må ikke spilles i stedet for at bekende en kulør, spilleren faktisk
+har. Reglen skal genbesøges.
 
 ---
 
@@ -632,9 +648,9 @@ Fra højest til lavest:
 
 # 25. Trumf i specialspil
 
-**⚠️ AFKLARES:** Det skal præciseres, om Sol, Ren sol, Bordlægger og Super bordlægger spilles med eller uden trumf.
+Produktbeslutning, 2026-08-21:
 
-Dette må ikke gættes af implementeringen.
+**Sol, Ren sol, Bordlægger og Super bordlægger spilles uden trumf.**
 
 ---
 
@@ -686,11 +702,11 @@ I Super bordlægger må melderen få:
 
 **0 stik**
 
-Alle spillere lægger deres kort åbent på bordet **inden det første udspil**.
+Melderen lægger sine kort åbent på bordet **inden det første udspil**. De øvrige spilleres hænder forbliver skjulte. Denne regel er ændret efter produktejerens note af 2026-09-19.
 
 De tre spillere, der spiller mod melderen, må tale sammen om:
 
-- deres kort
+- egne kort og melderens åbne kort
 - mulige udspil
 - strategi
 - hvordan de forsøger at vælte melderen
@@ -880,16 +896,14 @@ Grundværdierne er:
 
 # 38. Tab af specialmelding
 
-**⚠️ AFKLARES:** Det skal bekræftes, hvordan point beregnes, hvis melderen bliver væltet i:
+Produktbeslutning, 2026-08-21: Hvis melderen bliver væltet i:
 
 - Sol
 - Ren sol
 - Bordlægger
 - Super bordlægger
 
-Den foreløbige antagelse er, at kontraktens normale pointværdi anvendes med modsat fortegn, men dette er **ikke endeligt bekræftet**.
-
-Codex må derfor ikke låse den endelige pointberegning for tabte specialmeldinger, før reglen er afklaret.
+anvendes kontraktens normale pointværdi med modsat fortegn.
 
 ---
 
@@ -1001,16 +1015,14 @@ Codex skal i stedet:
 
 Følgende regler mangler stadig endelig bekræftelse:
 
-1. **Vip:** Hvad sker der, hvis den første bytter, der vendes, er en joker?
-2. **Vip:** Bekræft præcis betydningen af en joker, der kommer efter et almindeligt vendt kort.
+1. **Vip:** Første joker giver foreløbig frit trumfvalg; endelig bekræftelse mangler.
+2. **Vip:** Joker efter almindeligt kort bruger foreløbig det foregående korts kulør; endelig bekræftelse mangler.
 3. **Bytning:** Kan man frit bytte 0, 1, 2 eller 3 kort, eller gælder "alt eller intet"?
-4. **Vip-bytning:** Skal alle vendte byttere tages op?
+4. **Vip-bytning:** Alle vendte byttere skal foreløbig tages op; endelig bekræftelse mangler.
 5. **Makkeres:** Præcis hvornår vælges makkeresset i forhold til trumf og bytning?
-6. **Makkeres:** Er makkeren altid tvunget til at spille selve makkeresset første gang kuløren spilles, selv hvis makkeren har andre kort i kuløren?
-7. **Joker:** Må en joker spilles i stedet for at bekende en kulør, som spilleren faktisk har?
-8. **Specialspil:** Spilles Sol, Ren sol, Bordlægger og Super bordlægger med eller uden trumf?
-9. **Selvmakker:** Bekræft den præcise pointfordeling ved selvmakker.
-10. **Tabt specialmelding:** Bekræft pointberegningen ved tabt Sol, Ren sol, Bordlægger og Super bordlægger.
+6. **Makkeres:** Makkeren er foreløbig altid tvunget til at spille selve makkeresset første gang kuløren spilles; endelig bekræftelse mangler.
+7. **Joker:** Jokeren må foreløbig ikke spilles i stedet for at bekende en kulør; endelig bekræftelse mangler.
+8. **Selvmakker:** Bekræft den præcise pointfordeling ved selvmakker.
 
 Disse spørgsmål bør afklares med spillergruppen senere.
 

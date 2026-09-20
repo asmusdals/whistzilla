@@ -8,6 +8,7 @@
     "e2e",
     "eslint.config.js",
     "playwright.config.ts",
+    "playwright.running-server.config.ts",
     "vitest.config.ts"
   ]
 }

@@ -10,3 +10,4 @@
 - Run relevant type checks and tests before completing work, and report anything that could not be run.
 - Record material changes to package boundaries, public interfaces, persistence formats, or multiplayer assumptions in `docs/architecture.md` and update `docs/roadmap.md` when sequencing changes.
 - Treat `asmus_noter/noter.txt` as active product-owner input and re-read it at the start of implementation sessions.
+- Use the Git workflow in `docs/git-workflow.md` as part of each implementation session. Make small, tested commits after completed slices and push the working branch regularly, including before ending a session when there are new commits. Report the branch, commit, and push status. Never silently include unrelated existing changes or force-push.

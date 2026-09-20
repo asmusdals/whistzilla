@@ -1,6 +1,7 @@
 import type { Bid } from './bidding';
 import type { Card } from './cards';
 import {
+  contractSetupActor,
   legalCommands,
   type GameCommand,
   type GamePhase,
@@ -15,6 +16,11 @@ export interface OpponentView {
   readonly cardCount: number;
 }
 
+export interface OpenHandView {
+  readonly seat: Seat;
+  readonly cards: readonly Card[];
+}
+
 export interface PlayerView {
   readonly revision: number;
   readonly phase: GamePhase;
@@ -24,11 +30,15 @@ export interface PlayerView {
   readonly firstPlayer: Seat;
   readonly ownHand: readonly Card[];
   readonly opponents: readonly OpponentView[];
+  readonly openHands: readonly OpenHandView[];
   readonly kittyCardCount: number;
+  readonly vipRevealedCards: readonly Card[];
+  readonly vipTrumpResolved: boolean;
   readonly currentBid: Bid | null;
   readonly biddingActor: Seat;
   readonly winningBid: Bid | null;
   readonly declarer: Seat | null;
+  readonly contractActor: Seat | null;
   readonly trump: GameState['contract']['trump'];
   readonly calledPartnerCardId: GameState['contract']['calledPartnerCardId'];
   readonly publicPartner: Seat | null;
@@ -41,6 +51,17 @@ export interface PlayerView {
 }
 
 export function projectPlayerView(state: GameState, viewer: Seat): PlayerView {
+  const declarerHasPlayed = state.publicEvents.some(
+    (event) => event.type === 'card-played' && event.seat === state.declarer,
+  );
+  const openSeats: readonly Seat[] =
+    state.phase === 'trick-play' &&
+    state.winningBid?.kind === 'special' &&
+    state.declarer !== null &&
+    (state.winningBid.bidType === 'super-laydown' ||
+      (state.winningBid.bidType === 'open-laydown' && declarerHasPlayed))
+      ? [state.declarer]
+      : [];
   return {
     revision: state.revision,
     phase: state.phase,
@@ -53,11 +74,17 @@ export function projectPlayerView(state: GameState, viewer: Seat): PlayerView {
       seat,
       cardCount: state.hands[seat].length,
     })),
+    openHands: openSeats.map((seat) => ({ seat, cards: state.hands[seat] })),
     kittyCardCount: state.kitty.length,
+    vipRevealedCards: state.kitty.filter(({ id }) =>
+      state.contract.vipRevealedCardIds.includes(id),
+    ),
+    vipTrumpResolved: state.contract.vipTrumpResolved,
     currentBid: state.bidding.currentBid,
     biddingActor: state.bidding.actor,
     winningBid: state.winningBid,
     declarer: state.declarer,
+    contractActor: contractSetupActor(state),
     trump: state.contract.trump,
     calledPartnerCardId: state.contract.calledPartnerCardId,
     publicPartner: state.contract.publicPartner,

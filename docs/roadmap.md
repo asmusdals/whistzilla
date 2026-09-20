@@ -9,7 +9,7 @@
 
 ## Milestone 0: Rules Approval
 
-**Status:** Active baseline. The rules are authoritative, and 10 explicitly marked questions remain open. Product-owner authorization on 2026-08-21 allows their written provisional defaults to be implemented before final confirmation.
+**Status:** Active baseline. The rules are authoritative, and 8 explicitly marked questions remain open. Product-owner authorization on 2026-08-21 allows their written provisional defaults to be implemented before final confirmation.
 
 Establish `game-rules.md` as the approved source, mark every unresolved point with `⚠️ AFKLARES`, and maintain the open-question register. Flagged behavior may proceed from an explicitly written provisional rule and must remain replaceable; a flag with no default still needs product input.
 
@@ -41,7 +41,7 @@ Create commands, events, revisions, immutable state transitions, legal-action qu
 
 ## Milestone 4: Bidding Engine
 
-**Status:** Complete for the confirmed bidding rules, including numerical hierarchy, special-bid thresholds, opening-pass prevention, "melde tilbage," and one winning bidder.
+**Status:** Complete for the confirmed bidding rules, including numerical hierarchy, special-bid thresholds, opening-pass prevention, strict clockwise turns with passed seats skipped, and one winning bidder.
 
 Implement bidding phases, turn order, bid hierarchy, legal bids, passes, termination, and declarer/contract selection exactly as specified.
 
@@ -49,7 +49,7 @@ Implement bidding phases, turn order, bid hierarchy, legal bids, passes, termina
 
 ## Milestone 5: Contract Setup
 
-**Status:** In progress. `Almindelige` supports declarer-selected trump. `Gode` automatically sets clubs as trump and follows the same legal ace/king partner path. Both support hidden partner identity, partner reveal, and an explicit no-exchange development path. Halve, Vip, exchange, and provisional self-partner behavior may now proceed from their written defaults. Special-contract trump still lacks a default.
+**Status:** Complete for all contracts. Numerical contracts support their contract-specific trump, partner, reveal, exchange, and self-partner paths. Special contracts use the confirmed no-trump setup and their one-against-three roles. Vip's written provisional joker/exchange policies and the provisional self-partner policy remain isolated and tested.
 
 Implement trump selection, exchange, partner/makkeres, self-partner behavior, role revelation, and contract-specific setup.
 
@@ -57,7 +57,7 @@ Implement trump selection, exchange, partner/makkeres, self-partner behavior, ro
 
 ## Milestone 6: Trick-Playing Engine
 
-**Status:** Complete for normal `Almindelige` play under the documented development profile: first lead, following suit, free discard when void, trump and rank winners, joker lead/discard behavior, partner reveal, next leader, and all 13 tricks are implemented.
+**Status:** Complete for all numerical contract paths under the documented development profile: first lead, following suit, free discard when void, trump/no-trump and rank winners, joker lead/discard behavior, partner reveal, next leader, and all 13 tricks are implemented.
 
 Implement leads, legal following, trump behavior, jokers, trick winner determination, trick history, and next-leader transitions.
 
@@ -65,7 +65,7 @@ Implement leads, legal following, trump behavior, jokers, trick winner determina
 
 ## Milestone 7: Scoring And Full-Round Integration
 
-**Status:** Complete for two-versus-two `Almindelige` and `Gode`. Confirmed trick values, doubled Gode values, overtricks, failed-contract penalties, per-player zero-sum deltas, and end-of-round integration are implemented. Provisional self-partner and lost-special scoring may now proceed from their written defaults; Vip scoring depends on implementing Vip setup.
+**Status:** Complete for numerical and special contracts, including Halve values, reveal-count Vip values, fixed special values, early special failure, overtricks, failed-contract penalties, two-versus-two deltas, and one-against-three distributions. Lost-special scoring uses the confirmed opposite-sign policy.
 
 Implement contract results, scoring, penalties, partner allocation, match completion, and a headless full-game runner.
 
@@ -73,7 +73,7 @@ Implement contract results, scoring, penalties, partner allocation, match comple
 
 ## Milestone 8: Basic Playable Game
 
-**Status:** First end-to-end MVP paths complete for `Almindelige` and `Gode`. The responsive table includes readable deal/bidding timing, international card labels, suit/rank hand ordering, contract setup, the documented no-exchange path, all 13 tricks, scoring, refresh/resume, completed replay archiving, replay review, and a completed-game screen. Remaining contracts are gated by rule clarification.
+**Status:** Every numerical and special bid has an end-to-end local path. A responsive Whistzilla home screen links to Training and a game-core-backed points calculator while marking Multiplayer as future work. The table includes clockwise bidding, readable timing, a retained four-card completed trick, international card labels, suit/rank hand ordering, separate bid-type/level controls, contract-specific setup, hidden-kitty exchange, normal and ace-low trick play, Bordlægger hand exposure, a four-player round and cumulative result summary, persisted dealer rotation, refresh/resume, replay archiving/review, announced storage recovery, and a completed-game screen.
 
 Build the responsive table, bidding controls, card interactions, turn/status presentation, legality-only bot driver, IndexedDB resume, settings, and completed replay storage. Optimize portrait phones and desktop together.
 
@@ -81,7 +81,7 @@ Build the responsive table, bidding controls, card interactions, turn/status pre
 
 ## Milestone 9: Practical Bot Strategy
 
-**Status:** In progress. Deterministic profiles choose only commands from `PlayerView`, rank every legal candidate, emit structured reasons, remember public cards, count unseen suited cards, and infer only publicly proven renounces. Stronger partnership tactics, distribution inference, seeded evaluation fixtures, and expert tuning remain.
+**Status:** In progress. Deterministic profiles choose only commands from `PlayerView`, rank every legal candidate, emit structured reasons, count unseen suited cards, and infer only publicly proven renounces. Numerical bids use a provisional trick-total distribution and actual point scoring to compare expected returns; special bids still use heuristics. Advanced numerical play samples plausible hidden deals and compares two-trick continuations without seeing actual hidden cards. Distribution calibration, broader seeded evaluation fixtures, and strength calibration remain.
 
 Add feature extraction, belief tracking from `PlayerView`, conventional bidding and play heuristics, candidate reports, and seeded tie-breaking. Replace the legality-only driver with a practical baseline bot.
 
@@ -89,7 +89,7 @@ Add feature extraction, belief tracking from `PlayerView`, conventional bidding 
 
 ## Milestone 10: Bidding Recommendations
 
-**Status:** Started. The shared analysis API ranks all legal bids, provides alternatives, and marks unsupported MVP contracts without letting bots select them. Expert-approved hand thresholds and bidding scenario fixtures remain.
+**Status:** In progress. The shared analysis API ranks every legal bid and pass using visible hand honors, suit structure, a symmetric partnership baseline, a provisional numerical trick distribution, actual scoring outcomes, special-hand safety, and difficulty calibration. Special bids compare estimated success probability with actual point stakes. Overbids need positive expected return against a neutral pass. A deterministic continuation draw now varies by difficulty and becomes less permissive after raises or higher bids, while compelling hands remain eligible. The results and limits are recorded in `docs/bot-evaluation.md`. Further distribution calibration remains; existing human test replays are excluded from strategy training by product-owner request.
 
 Rank all legal bids and pass, expose alternatives and uncertainty, and add bidding scenario fixtures supplied or approved by a knowledgeable Whist player.
 
@@ -97,7 +97,7 @@ Rank all legal bids and pass, expose alternatives and uncertainty, and add biddi
 
 ## Milestone 11: Card-Play Recommendations
 
-**Status:** Started. Every legal card receives a deterministic tactical score and structured reasons using current-trick information and public memory. Full pre-action candidate reports are cached for perspective-safe post-move comparison. Partnership tactics, richer preservation/forcing evaluation, and curated scenarios remain.
+**Status:** In progress. Every legal card receives a deterministic tactical score and structured reasons using current-trick information and public memory. Bots avoid overtaking a known teammate, including a fellow defender after the declarer partner is revealed, apply second-hand-low and third-hand-high, draw trump only with some hand control, cash publicly established top trumps, infer renounces from legal joker discards, use opposite trick objectives as special declarer/defender, and choose face-down exchanges by discard quality. Advanced numerical play compares up to 24 public-history-consistent sampled deals across two tricks. Under the revised Super bordlægger visibility rule, strategy sees only the declarer's open hand and cannot use the earlier all-hands search. Full pre-action reports are cached for perspective-safe comparison. Richer early-game preservation, forcing, and longer-horizon planning remain.
 
 Evaluate every legal card using tactical factors, public history, known facts, and inferred distributions. Cache pre-action reports for post-move comparison.
 
@@ -105,7 +105,7 @@ Evaluate every legal card using tactical factors, public history, known facts, a
 
 ## Milestone 12: Coaching And Review UI
 
-**Status:** In progress. On-demand hints progressively reveal strategic considerations, visible/remembered/inferred facts, the recommended action, alternatives, and highlighted candidate cards. Optional post-move feedback uses the cached pre-action report, and completed replays can be reviewed command by command from the human perspective. Guided mode and persistent assistance modes remain.
+**Status:** In progress. Persisted no-assistance, hint, guided, and training modes control the coaching presentation. Hints progressively reveal strategic considerations, visible/remembered/inferred facts, the recommended action, alternatives, and highlighted candidate cards. The table now names the active turn, marks the winner of the last trick, and explains the human player's legal card choice, including suit following and a forced called card. Optional post-move feedback uses the cached pre-action report, and completed replays can be reviewed command by command from the human perspective. Richer guided prompts and replay decision filtering remain.
 
 Implement no-assistance, hint, guided, and training modes; progressive hints; desktop panel; phone bottom sheet; candidate comparison; post-move feedback; and perspective-correct replay review.
 
@@ -113,7 +113,7 @@ Implement no-assistance, hint, guided, and training modes; progressive hints; de
 
 ## Milestone 13: Difficulty Levels
 
-**Status:** Started. Beginner, Intermediate, and Advanced profiles are selectable and persisted locally. Beginner uses simple deterministic low-card behavior; higher profiles add current-trick tactics and legitimate public-memory signals. Scenario-based tuning and measurable strength evaluation remain.
+**Status:** In progress. Beginner, Intermediate, and Advanced profiles are selectable and persisted locally. Beginner uses simple deterministic low-card behavior and no completed-trick recall, Intermediate recalls four completed tricks, and Advanced recalls all public play. The current trick remains visible for each profile. A reproducible 128-seed, four-seat rotation evaluates Intermediate against Beginners, Advanced against Intermediates, and Advanced under a fixed ordinary contract. Positive results are recorded in `docs/bot-evaluation.md`; broader strength evaluation, bounded plausible beginner mistakes, and calibrated Intermediate play remain.
 
 Create Beginner, Intermediate, and Advanced strategy profiles by varying feature coverage, memory, inference, lookahead, and risk calibration. Tune against scenario suites and bot-versus-bot evaluation without teaching deliberate random mistakes.
 
@@ -121,20 +121,22 @@ Create Beginner, Intermediate, and Advanced strategy profiles by varying feature
 
 ## Milestone 14: Polish And PWA
 
-**Status:** Started. The production build includes install metadata, generated raster app icons, a manifest, production-only service-worker registration, shell caching, and offline navigation fallback. Update UX, explicit install/offline tests, accessibility audit, reduced motion, animation, sound, and visual regression coverage remain.
+**Status:** In progress. The production build includes install metadata, generated raster app icons, a manifest, production-only service-worker registration, shell caching, and offline navigation fallback. Reduced-motion users bypass the deal animation and all CSS motion is collapsed; keyboard focus is explicit, card controls have localized accessible names, live status is announced, mobile overlays avoid primary actions, and browser coverage checks viewport overflow. Optional persisted action sounds are available but default off. Explicit install/offline automation, a complete WCAG audit, and broader visual regression coverage remain.
 
 Refine card readability, typography, spacing, feedback, sound controls, reduced motion, accessibility, table animation, loading states, error recovery, manifest, service worker, installability, and offline startup.
 
 **Exit:** visual regression checks pass on representative desktop and mobile viewports; install, update, offline, and resume flows are verified.
 
-## Milestone 15: Native Packaging Evaluation
+## Milestone 15: Human Multiplayer
+
+**Status:** Started with the product-owner request, the service design in `docs/multiplayer.md`, and a framework-free `@whistzilla/multiplayer` room service. It issues private seat tokens, blocks actions until four seats are occupied, validates commands through the game core, and returns only seat projections. Durable storage, transport, invite URL UI, and public deployment remain. The current static Training client is still local-only.
+
+Build a separate authoritative service for four humans, private rooms, shareable invite links, reconnect, hidden-card projections, server validation, persistence, and abuse controls. Deliver the first playable room flow before native packaging. Select transport and hosting as part of this milestone.
+
+**Exit:** four remote clients can reconnect to a server-validated game without receiving another seat's hidden information.
+
+## Milestone 16: Native Packaging Evaluation
 
 Validate the stable PWA inside Capacitor, identify native-only requirements, and add platform projects only if store distribution provides clear value.
 
 **Exit:** a documented go/no-go decision includes maintenance and store-release costs.
-
-## Milestone 16: Human Multiplayer Later
-
-Design and build a separate authoritative service for four humans, private rooms, invite links, reconnect, hidden-card projections, server validation, persistence, and abuse controls. Select transport and hosting from measured requirements at that time.
-
-**Exit:** four remote clients can reconnect to a server-validated game without receiving another seat's hidden information.

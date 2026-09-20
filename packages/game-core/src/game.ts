@@ -7,7 +7,11 @@ import {
 import { RANKS, SUITS, type Card, type CardId, type Suit } from './cards';
 import { createSeededDeal, SEATS, type Hand, type Seat } from './deal';
 import type { ShuffleSeed } from './random';
-import { scoreNumericalContract, type NumericalScore } from './scoring';
+import {
+  scoreNumericalContract,
+  scoreSpecialContract,
+  type GameScore,
+} from './scoring';
 
 export type GamePhase = 'bidding' | 'contract-setup' | 'trick-play' | 'scoring';
 
@@ -34,6 +38,9 @@ export interface ContractState {
   readonly partner: Seat | null;
   readonly publicPartner: Seat | null;
   readonly exchangeSkipped: boolean;
+  readonly exchangeCount: number | null;
+  readonly vipRevealedCardIds: readonly CardId[];
+  readonly vipTrumpResolved: boolean;
 }
 
 export interface TrickPlayState {
@@ -80,6 +87,19 @@ export type PublicGameEvent =
       readonly revision: number;
     }
   | {
+      readonly type: 'cards-exchanged';
+      readonly seat: Seat;
+      readonly count: number;
+      readonly revision: number;
+    }
+  | {
+      readonly type: 'vip-card-revealed';
+      readonly seat: Seat;
+      readonly card: Card;
+      readonly revealNumber: number;
+      readonly revision: number;
+    }
+  | {
       readonly type: 'card-played';
       readonly seat: Seat;
       readonly card: Card;
@@ -106,12 +126,13 @@ export interface GameState {
   readonly firstPlayer: Seat;
   readonly hands: readonly [Hand, Hand, Hand, Hand];
   readonly kitty: readonly Card[];
+  readonly discardedCards: readonly Card[];
   readonly bidding: BiddingState;
   readonly winningBid: Bid | null;
   readonly declarer: Seat | null;
   readonly contract: ContractState;
   readonly trickPlay: TrickPlayState;
-  readonly score: NumericalScore | null;
+  readonly score: GameScore | null;
   readonly publicEvents: readonly PublicGameEvent[];
 }
 
@@ -126,6 +147,12 @@ export type GameCommand =
   | (CommandBase & { readonly type: 'choose-trump'; readonly trump: Suit })
   | (CommandBase & { readonly type: 'call-partner'; readonly cardId: CardId })
   | (CommandBase & { readonly type: 'skip-exchange' })
+  | (CommandBase & { readonly type: 'reveal-vip-card' })
+  | (CommandBase & { readonly type: 'stop-vip' })
+  | (CommandBase & {
+      readonly type: 'exchange-cards';
+      readonly discardedCardIds: readonly CardId[];
+    })
   | (CommandBase & { readonly type: 'play-card'; readonly cardId: CardId });
 
 export type PlaceBidCommand = Extract<GameCommand, { type: 'place-bid' }>;
@@ -143,6 +170,9 @@ export type RuleViolationCode =
   | 'partner-card-required'
   | 'invalid-partner-card'
   | 'exchange-decision-required'
+  | 'invalid-exchange-count'
+  | 'invalid-exchange-cards'
+  | 'vip-action-unavailable'
   | 'card-not-in-hand'
   | 'illegal-card-play';
 
@@ -175,13 +205,11 @@ export function createGame(config: GameConfig): GameState {
     firstPlayer,
     hands: deal.hands,
     kitty: deal.kitty,
+    discardedCards: [],
     bidding: {
       actor: firstPlayer,
       currentBid: null,
       bidHolder: null,
-      waitingSeats: [1, 2, 3].map(
-        (offset) => ((firstPlayer + offset) % 4) as Seat,
-      ),
       passedSeats: [],
     },
     winningBid: null,
@@ -192,6 +220,9 @@ export function createGame(config: GameConfig): GameState {
       partner: null,
       publicPartner: null,
       exchangeSkipped: false,
+      exchangeCount: null,
+      vipRevealedCardIds: [],
+      vipTrumpResolved: false,
     },
     trickPlay: {
       leader: firstPlayer,
@@ -228,15 +259,64 @@ export function legalCommands(
     return commands;
   }
 
-  if (state.phase === 'contract-setup' && state.declarer === seat) {
+  if (state.phase === 'contract-setup' && contractSetupActor(state) === seat) {
     if (!isSupportedContract(state.winningBid)) return [];
-    if (!state.contract.trump) {
-      return SUITS.map((trump) => ({
-        type: 'choose-trump',
+    const isHalves =
+      state.winningBid.kind === 'numerical' &&
+      state.winningBid.bidType === 'halves';
+    const isVip =
+      state.winningBid.kind === 'numerical' &&
+      state.winningBid.bidType === 'vip';
+    const isSpecial = state.winningBid.kind === 'special';
+    if (isVip && !state.contract.vipTrumpResolved) {
+      const firstRevealIsJoker =
+        state.contract.vipRevealedCardIds.length === 1 &&
+        state.kitty.find(
+          ({ id }) => id === state.contract.vipRevealedCardIds[0],
+        )?.kind === 'joker';
+      if (firstRevealIsJoker && !state.contract.trump) {
+        return SUITS.map((trump) => ({
+          type: 'choose-trump' as const,
+          actor: seat,
+          expectedRevision: state.revision,
+          trump,
+        }));
+      }
+      const commands: GameCommand[] = [
+        {
+          type: 'reveal-vip-card',
+          actor: seat,
+          expectedRevision: state.revision,
+        },
+      ];
+      if (state.contract.trump) {
+        commands.push({
+          type: 'stop-vip',
+          actor: seat,
+          expectedRevision: state.revision,
+        });
+      }
+      return commands;
+    }
+    if (isHalves && !state.contract.calledPartnerCardId) {
+      return callablePartnerCards(state).map((cardId) => ({
+        type: 'call-partner',
         actor: seat,
         expectedRevision: state.revision,
-        trump,
+        cardId,
       }));
+    }
+    if (isSpecial) return exchangeCommands(state, seat);
+    if (!state.contract.trump && !isVip) {
+      const calledSuit = state.contract.calledPartnerCardId?.split(':')[0];
+      return SUITS.filter((trump) => !isHalves || trump !== calledSuit).map(
+        (trump) => ({
+          type: 'choose-trump' as const,
+          actor: seat,
+          expectedRevision: state.revision,
+          trump,
+        }),
+      );
     }
     if (!state.contract.calledPartnerCardId) {
       return callablePartnerCards(state).map((cardId) => ({
@@ -246,9 +326,7 @@ export function legalCommands(
         cardId,
       }));
     }
-    return [
-      { type: 'skip-exchange', actor: seat, expectedRevision: state.revision },
-    ];
+    return exchangeCommands(state, seat);
   }
 
   if (state.phase === 'trick-play' && state.trickPlay.actor === seat) {
@@ -276,7 +354,50 @@ export function applyCommand(
   if (command.type === 'choose-trump') return chooseTrump(state, command);
   if (command.type === 'call-partner') return callPartner(state, command);
   if (command.type === 'skip-exchange') return skipExchange(state, command);
+  if (command.type === 'reveal-vip-card') return revealVipCard(state, command);
+  if (command.type === 'stop-vip') return stopVip(state, command);
+  if (command.type === 'exchange-cards') return exchangeCards(state, command);
   return playCard(state, command);
+}
+
+// Provisional policy for rule 12: ordinary, halves, and good permit 0-3 freely
+// selected hand discards and receive the same number of face-down kitty cards.
+// Vip requires every revealed kitty card to be taken.
+function exchangeCommands(
+  state: GameState,
+  seat: Seat,
+): readonly GameCommand[] {
+  const base = { actor: seat, expectedRevision: state.revision } as const;
+  const isVip =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'vip';
+  const commands: GameCommand[] = isVip
+    ? []
+    : [{ type: 'skip-exchange', ...base }];
+  const counts = isVip ? [state.contract.vipRevealedCardIds.length] : [1, 2, 3];
+  for (const count of counts) {
+    for (const discardedCardIds of combinations(
+      state.hands[seat].map(({ id }) => id),
+      count,
+    )) {
+      commands.push({
+        type: 'exchange-cards',
+        ...base,
+        discardedCardIds,
+      });
+    }
+  }
+  return commands;
+}
+
+function combinations<T>(values: readonly T[], count: number): readonly T[][] {
+  if (count === 0) return [[]];
+  return values.flatMap((value, index) =>
+    combinations(values.slice(index + 1), count - 1).map((tail) => [
+      value,
+      ...tail,
+    ]),
+  );
 }
 
 function applyBiddingCommand(
@@ -300,25 +421,21 @@ function applyBiddingCommand(
       bid: command.bid,
       revision,
     };
-    const previousHolder = state.bidding.bidHolder;
-    const nextActor = previousHolder ?? state.bidding.waitingSeats[0];
-    if (nextActor === undefined)
-      throw new Error('Bidding state has no opponent.');
+    const nextActor = nextActiveBidder(
+      command.actor,
+      state.bidding.passedSeats,
+    );
     return success(state, revision, [event], {
       bidding: {
         ...state.bidding,
         actor: nextActor,
         currentBid: command.bid,
         bidHolder: command.actor,
-        waitingSeats:
-          previousHolder !== null
-            ? state.bidding.waitingSeats
-            : state.bidding.waitingSeats.slice(1),
       },
     });
   }
 
-  const { bidHolder, currentBid, waitingSeats } = state.bidding;
+  const { bidHolder, currentBid } = state.bidding;
   if (bidHolder === null || !currentBid)
     return reject('opening-pass-forbidden');
   const revision = state.revision + 1;
@@ -327,14 +444,14 @@ function applyBiddingCommand(
     seat: command.actor,
     revision,
   };
-  const nextChallenger = waitingSeats[0];
-  if (nextChallenger !== undefined) {
+  const passedSeats = [...state.bidding.passedSeats, command.actor];
+  const activeSeats = SEATS.filter((seat) => !passedSeats.includes(seat));
+  if (activeSeats.length > 1) {
     return success(state, revision, [passEvent], {
       bidding: {
         ...state.bidding,
-        actor: nextChallenger,
-        waitingSeats: waitingSeats.slice(1),
-        passedSeats: [...state.bidding.passedSeats, command.actor],
+        actor: nextActiveBidder(command.actor, passedSeats),
+        passedSeats,
       },
     });
   }
@@ -368,17 +485,31 @@ function applyBiddingCommand(
         : state.contract,
       bidding: {
         ...state.bidding,
-        passedSeats: [...state.bidding.passedSeats, command.actor],
+        passedSeats,
       },
     },
   );
 }
 
+function nextActiveBidder(from: Seat, passedSeats: readonly Seat[]): Seat {
+  for (let offset = 1; offset <= 4; offset += 1) {
+    const seat = ((from + offset) % 4) as Seat;
+    if (!passedSeats.includes(seat)) return seat;
+  }
+  throw new Error('Bidding state has no active seat.');
+}
+
 function isSupportedContract(bid: Bid | null): bid is Bid {
-  return (
-    bid?.kind === 'numerical' &&
-    (bid.bidType === 'ordinary' || bid.bidType === 'good')
-  );
+  return bid !== null;
+}
+
+export function contractSetupActor(state: GameState): Seat | null {
+  if (state.phase !== 'contract-setup' || state.declarer === null) return null;
+  const isHalves =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'halves';
+  if (!isHalves || !state.contract.calledPartnerCardId) return state.declarer;
+  return state.contract.partner ?? state.declarer;
 }
 
 function chooseTrump(
@@ -386,10 +517,28 @@ function chooseTrump(
   command: Extract<GameCommand, { type: 'choose-trump' }>,
 ): TransitionResult {
   if (state.phase !== 'contract-setup') return reject('wrong-phase');
-  if (command.actor !== state.declarer) return reject('wrong-actor');
+  if (command.actor !== contractSetupActor(state)) return reject('wrong-actor');
   if (!isSupportedContract(state.winningBid))
     return reject('unsupported-contract');
+  if (state.winningBid.kind === 'special') return reject('invalid-trump');
   if (state.contract.trump) return reject('invalid-trump');
+  const isVip =
+    state.winningBid.kind === 'numerical' && state.winningBid.bidType === 'vip';
+  const vipMayChooseAfterOpeningJoker =
+    isVip &&
+    state.contract.vipRevealedCardIds.length === 1 &&
+    state.kitty.find(({ id }) => id === state.contract.vipRevealedCardIds[0])
+      ?.kind === 'joker';
+  if (isVip && !vipMayChooseAfterOpeningJoker) return reject('invalid-trump');
+  const isHalves =
+    state.winningBid.kind === 'numerical' &&
+    state.winningBid.bidType === 'halves';
+  if (
+    isHalves &&
+    state.contract.calledPartnerCardId?.startsWith(`${command.trump}:`)
+  ) {
+    return reject('invalid-trump');
+  }
   const revision = state.revision + 1;
   const event = {
     type: 'trump-chosen' as const,
@@ -398,20 +547,33 @@ function chooseTrump(
     revision,
   };
   return success(state, revision, [event], {
-    contract: { ...state.contract, trump: command.trump },
+    contract: {
+      ...state.contract,
+      trump: command.trump,
+      vipTrumpResolved: isVip ? true : state.contract.vipTrumpResolved,
+    },
   });
 }
 
 function callablePartnerCards(state: GameState): readonly CardId[] {
   const declarer = state.declarer;
   const trump = state.contract.trump;
-  if (declarer === null || !trump) return [];
+  const isHalves =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'halves';
+  const resolvedNoTrumpVip =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'vip' &&
+    state.contract.vipTrumpResolved;
+  if (declarer === null || (!trump && !isHalves && !resolvedNoTrumpVip))
+    return [];
   const ownIds = new Set(state.hands[declarer].map(({ id }) => id));
-  const aceIds = SUITS.filter((suit) => suit !== trump)
+  const legalSuits = SUITS.filter((suit) => !trump || suit !== trump);
+  const aceIds = legalSuits
     .map((suit) => `${suit}:ace` as CardId)
     .filter((id) => !ownIds.has(id));
   if (aceIds.length > 0) return aceIds;
-  return SUITS.filter((suit) => suit !== trump)
+  return legalSuits
     .map((suit) => `${suit}:king` as CardId)
     .filter((id) => !ownIds.has(id));
 }
@@ -422,13 +584,24 @@ function callPartner(
 ): TransitionResult {
   if (state.phase !== 'contract-setup') return reject('wrong-phase');
   if (command.actor !== state.declarer) return reject('wrong-actor');
-  if (!state.contract.trump) return reject('trump-required');
+  const isHalves =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'halves';
+  const resolvedNoTrumpVip =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'vip' &&
+    state.contract.vipTrumpResolved;
+  if (!state.contract.trump && !isHalves && !resolvedNoTrumpVip)
+    return reject('trump-required');
   if (!callablePartnerCards(state).includes(command.cardId))
     return reject('invalid-partner-card');
   const partner =
     SEATS.find((seat) =>
       state.hands[seat].some(({ id }) => id === command.cardId),
-    ) ?? null;
+    ) ??
+    (state.kitty.some(({ id }) => id === command.cardId)
+      ? command.actor
+      : null);
   const revision = state.revision + 1;
   const event = {
     type: 'partner-called' as const,
@@ -436,13 +609,25 @@ function callPartner(
     cardId: command.cardId,
     revision,
   };
-  return success(state, revision, [event], {
-    contract: {
-      ...state.contract,
-      calledPartnerCardId: command.cardId,
-      partner,
+  const halvesRevealsPartner =
+    isHalves && partner !== null
+      ? ({ type: 'partner-revealed', seat: partner, revision } as const)
+      : null;
+  return success(
+    state,
+    revision,
+    halvesRevealsPartner ? [event, halvesRevealsPartner] : [event],
+    {
+      contract: {
+        ...state.contract,
+        calledPartnerCardId: command.cardId,
+        partner,
+        publicPartner: halvesRevealsPartner
+          ? partner
+          : state.contract.publicPartner,
+      },
     },
-  });
+  );
 }
 
 function skipExchange(
@@ -450,8 +635,16 @@ function skipExchange(
   command: Extract<GameCommand, { type: 'skip-exchange' }>,
 ): TransitionResult {
   if (state.phase !== 'contract-setup') return reject('wrong-phase');
-  if (command.actor !== state.declarer) return reject('wrong-actor');
-  if (!state.contract.calledPartnerCardId)
+  if (command.actor !== contractSetupActor(state)) return reject('wrong-actor');
+  if (
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'vip'
+  )
+    return reject('exchange-decision-required');
+  if (
+    state.winningBid?.kind !== 'special' &&
+    !state.contract.calledPartnerCardId
+  )
     return reject('partner-card-required');
   const revision = state.revision + 1;
   const event = {
@@ -461,7 +654,147 @@ function skipExchange(
   };
   return success(state, revision, [event], {
     phase: 'trick-play',
-    contract: { ...state.contract, exchangeSkipped: true },
+    contract: {
+      ...state.contract,
+      exchangeSkipped: true,
+      exchangeCount: 0,
+    },
+  });
+}
+
+function revealVipCard(
+  state: GameState,
+  command: Extract<GameCommand, { type: 'reveal-vip-card' }>,
+): TransitionResult {
+  if (state.phase !== 'contract-setup') return reject('wrong-phase');
+  if (command.actor !== contractSetupActor(state)) return reject('wrong-actor');
+  if (
+    state.winningBid?.kind !== 'numerical' ||
+    state.winningBid.bidType !== 'vip' ||
+    state.contract.vipTrumpResolved
+  )
+    return reject('vip-action-unavailable');
+  const card = state.kitty[state.contract.vipRevealedCardIds.length];
+  if (!card) return reject('vip-action-unavailable');
+  const revision = state.revision + 1;
+  const vipRevealedCardIds = [...state.contract.vipRevealedCardIds, card.id];
+  const trump = card.kind === 'suited' ? card.suit : state.contract.trump;
+  const vipTrumpResolved = vipRevealedCardIds.length === 3;
+  const events: PublicGameEvent[] = [
+    {
+      type: 'vip-card-revealed',
+      seat: command.actor,
+      card,
+      revealNumber: vipRevealedCardIds.length,
+      revision,
+    },
+  ];
+  if (vipTrumpResolved && trump) {
+    events.push({
+      type: 'trump-chosen',
+      seat: command.actor,
+      trump,
+      revision,
+    });
+  }
+  return success(state, revision, events, {
+    contract: {
+      ...state.contract,
+      trump,
+      vipRevealedCardIds,
+      vipTrumpResolved,
+    },
+  });
+}
+
+function stopVip(
+  state: GameState,
+  command: Extract<GameCommand, { type: 'stop-vip' }>,
+): TransitionResult {
+  if (state.phase !== 'contract-setup') return reject('wrong-phase');
+  if (command.actor !== contractSetupActor(state)) return reject('wrong-actor');
+  if (
+    state.winningBid?.kind !== 'numerical' ||
+    state.winningBid.bidType !== 'vip' ||
+    state.contract.vipTrumpResolved ||
+    !state.contract.trump
+  )
+    return reject('vip-action-unavailable');
+  const revision = state.revision + 1;
+  const event = {
+    type: 'trump-chosen' as const,
+    seat: command.actor,
+    trump: state.contract.trump,
+    revision,
+  };
+  return success(state, revision, [event], {
+    contract: { ...state.contract, vipTrumpResolved: true },
+  });
+}
+
+function exchangeCards(
+  state: GameState,
+  command: Extract<GameCommand, { type: 'exchange-cards' }>,
+): TransitionResult {
+  if (state.phase !== 'contract-setup') return reject('wrong-phase');
+  if (command.actor !== contractSetupActor(state)) return reject('wrong-actor');
+  if (
+    state.winningBid?.kind !== 'special' &&
+    !state.contract.calledPartnerCardId
+  )
+    return reject('partner-card-required');
+  const count = command.discardedCardIds.length;
+  if (count < 1 || count > 3) return reject('invalid-exchange-count');
+  const discardedIds = new Set(command.discardedCardIds);
+  const isVip =
+    state.winningBid?.kind === 'numerical' &&
+    state.winningBid.bidType === 'vip';
+  const kittyCardIds = isVip
+    ? state.contract.vipRevealedCardIds
+    : state.kitty.slice(0, count).map(({ id }) => id);
+  const kittyIds = new Set(kittyCardIds);
+  if (
+    discardedIds.size !== count ||
+    kittyIds.size !== count ||
+    !command.discardedCardIds.every((id) =>
+      state.hands[command.actor].some((card) => card.id === id),
+    ) ||
+    !kittyCardIds.every((id) => state.kitty.some((card) => card.id === id))
+  ) {
+    return reject('invalid-exchange-cards');
+  }
+
+  const discarded = state.hands[command.actor].filter(({ id }) =>
+    discardedIds.has(id),
+  );
+  const taken = state.kitty.filter(({ id }) => kittyIds.has(id));
+  const replacementHand = [
+    ...state.hands[command.actor].filter(({ id }) => !discardedIds.has(id)),
+    ...taken,
+  ];
+  const hands = state.hands.map((hand, seat) =>
+    seat === command.actor ? replacementHand : hand,
+  ) as [Hand, Hand, Hand, Hand];
+  const revision = state.revision + 1;
+  const event = {
+    type: 'cards-exchanged' as const,
+    seat: command.actor,
+    count,
+    revision,
+  };
+  const becameSelfPartner = taken.some(
+    ({ id }) => id === state.contract.calledPartnerCardId,
+  );
+  return success(state, revision, [event], {
+    phase: 'trick-play',
+    hands,
+    kitty: state.kitty.filter(({ id }) => !kittyIds.has(id)),
+    discardedCards: [...state.discardedCards, ...discarded],
+    contract: {
+      ...state.contract,
+      partner: becameSelfPartner ? command.actor : state.contract.partner,
+      exchangeCount: count,
+    },
   });
 }
 
@@ -528,7 +861,12 @@ function playCard(
     });
   }
 
-  const winner = trickWinner(currentTrick, state.contract.trump);
+  const specialContract = state.winningBid?.kind === 'special';
+  const winner = trickWinner(
+    currentTrick,
+    state.contract.trump,
+    specialContract,
+  );
   const trickCounts = [...state.trickPlay.trickCounts] as [
     number,
     number,
@@ -546,17 +884,25 @@ function playCard(
     trickNumber: completedTricks.length,
     revision,
   });
-  const finished = completedTricks.length === 13;
+  const declarerTricks =
+    state.declarer === null ? 0 : trickCounts[state.declarer];
+  const specialLost =
+    state.winningBid?.kind === 'special' &&
+    (state.winningBid.bidType === 'sol'
+      ? declarerTricks >= 2
+      : declarerTricks >= 1);
+  const finished = completedTricks.length === 13 || specialLost;
   const score =
-    finished &&
-    state.winningBid?.kind === 'numerical' &&
-    state.declarer !== null
-      ? scoreNumericalContract(
-          state.winningBid,
-          state.declarer,
-          state.contract.partner,
-          trickCounts,
-        )
+    finished && state.winningBid && state.declarer !== null
+      ? state.winningBid.kind === 'numerical'
+        ? scoreNumericalContract(
+            state.winningBid,
+            state.declarer,
+            state.contract.partner,
+            trickCounts,
+            state.contract.vipRevealedCardIds.length,
+          )
+        : scoreSpecialContract(state.winningBid, state.declarer, trickCounts)
       : null;
   return success(state, revision, events, {
     phase: finished ? 'scoring' : 'trick-play',
@@ -576,6 +922,7 @@ function playCard(
 export function trickWinner(
   cards: readonly PlayedCard[],
   trump: Suit | null,
+  aceLow = false,
 ): Seat {
   const lead = cards[0];
   if (!lead) throw new Error('Cannot determine the winner of an empty trick.');
@@ -595,9 +942,9 @@ export function trickWinner(
         );
   return eligible.reduce((best, play) => {
     if (best.card.kind !== 'suited' || play.card.kind !== 'suited') return best;
-    return RANKS.indexOf(play.card.rank) > RANKS.indexOf(best.card.rank)
-      ? play
-      : best;
+    const rankValue = (rank: (typeof RANKS)[number]) =>
+      aceLow && rank === 'ace' ? -1 : RANKS.indexOf(rank);
+    return rankValue(play.card.rank) > rankValue(best.card.rank) ? play : best;
   }).seat;
 }
 
