@@ -44,6 +44,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 
 import { CARD_RANK_LABELS, compareHandCards } from './cards/presentation';
+import { CardVisual } from './cards/CardVisual';
 import {
   MultiplayerLobbyPage,
   MultiplayerRoomPage,
@@ -187,35 +188,6 @@ function playActionSound(command: GameCommand) {
   oscillator.addEventListener('ended', () => void context.close());
   oscillator.start();
   oscillator.stop(context.currentTime + 0.08);
-}
-
-function CardVisual({ card }: { readonly card: Card }) {
-  if (card.kind === 'joker') {
-    return (
-      <div
-        className="playing-card joker-card"
-        aria-label={`Joker ${card.number}`}
-      >
-        <span>J</span>
-        <strong>Joker</strong>
-        <span>{card.number}</span>
-      </div>
-    );
-  }
-  const suit = SUITS[card.suit];
-  const red = card.suit === 'hearts' || card.suit === 'diamonds';
-  return (
-    <div
-      className={`playing-card ${red ? 'red-suit' : ''}`}
-      aria-label={`${CARD_RANK_LABELS[card.rank]} ${suit.symbol}`}
-    >
-      <span className="card-corner">{CARD_RANK_LABELS[card.rank]}</span>
-      <strong className="card-suit">{suit.symbol}</strong>
-      <span className="card-corner card-corner-bottom">
-        {CARD_RANK_LABELS[card.rank]}
-      </span>
-    </div>
-  );
 }
 
 function PlayerSeat({

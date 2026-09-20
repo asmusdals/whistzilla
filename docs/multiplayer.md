@@ -46,7 +46,10 @@ and expected revision; the server maps that index to the current projected
 legal command before applying it. The browser never submits arbitrary game
 state or sees another player's unrevealed hand.
 
-The UI is under `/multiplayer` and `/multiplayer/:tableId`. Local Vite
+The UI is under `/multiplayer` and `/multiplayer/:tableId`. The lobby and game
+use the same felt table, seat positions, playing cards, and compact bid
+controls as bot training. Each player's own seat is rotated to the bottom;
+chat and bid history can be expanded below the table. Local Vite
 development proxies `/api/tables` to the Worker running at port 8787. A
 production build enables the multiplayer home link only when
 `VITE_MULTIPLAYER_API_URL` is set to the deployed Worker URL. Netlify remains

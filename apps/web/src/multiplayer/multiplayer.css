@@ -28,6 +28,117 @@
   margin: 0;
   font-size: clamp(1.6rem, 4vw, 2.6rem);
 }
+.multi-room {
+  max-width: 1180px;
+}
+.multi-room .contract-strip {
+  margin-top: 16px;
+  border: 1px solid rgb(239 210 105 / 24%);
+  border-radius: 8px;
+}
+.multi-room .multi-felt {
+  width: min(920px, calc(100% - 24px));
+  min-height: clamp(340px, 45vw, 440px);
+  margin-block: 28px 26px;
+}
+.multi-felt .human-seat,
+.multi-felt .player-seat {
+  z-index: 2;
+}
+.multi-felt .human-seat {
+  min-width: 160px;
+}
+.multi-felt .player-seat span,
+.multi-felt .human-seat span {
+  white-space: nowrap;
+}
+.multi-felt .multi-bot-seat .avatar {
+  background: #a8c9b0;
+}
+.multi-felt .active-seat {
+  border-color: #f1d772;
+  box-shadow: 0 0 0 3px rgb(241 215 114 / 18%);
+}
+.multi-table-center {
+  gap: 10px;
+  width: min(52%, 370px);
+}
+.multi-table-center p {
+  font-size: 0.88rem;
+}
+.multi-table-center .open-hands {
+  width: min(50vw, 360px);
+}
+.multi-trick-card .playing-card {
+  animation: multi-card-arrive 240ms ease-out both;
+}
+@keyframes multi-card-arrive {
+  from {
+    opacity: 0;
+    scale: 0.82;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.multi-room .multi-hand-area {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 12px;
+}
+.multi-room .multi-hand-area .hand {
+  min-height: 112px;
+}
+.multi-page .hand-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.multi-page .hand-card:hover:not(:disabled) {
+  background: transparent;
+}
+.multi-page .hand-card:disabled {
+  opacity: 1;
+}
+.multi-page .hand-card:disabled .playing-card {
+  filter: none;
+}
+.multi-page .hand-card:not(:disabled) .playing-card {
+  border-color: #f1d772;
+}
+.multi-room .bid-controls select {
+  color: #15241f;
+  background: #f7f4eb;
+}
+.multi-room .bid-controls button {
+  min-height: 42px;
+}
+.multi-room .bid-controls .primary-button {
+  color: #17251f;
+  background: #efd269;
+  font-weight: 700;
+}
+.multi-room .multi-simple-actions {
+  justify-content: center;
+}
+.multi-room .multi-waiting {
+  text-align: center;
+}
+.multi-round-result {
+  max-width: 920px;
+  margin-inline: auto;
+}
+.multi-bid-history {
+  max-width: 920px;
+  margin-inline: auto;
+}
+.multi-bid-history summary {
+  cursor: pointer;
+  color: #efd269;
+  font-weight: 700;
+}
 .multi-header a {
   color: #e9c989;
 }
@@ -122,77 +233,39 @@
   font-weight: 700;
   margin-right: auto;
 }
-.multi-scoreboard {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-.multi-scoreboard > div {
-  display: grid;
-  gap: 4px;
-  border-radius: 12px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.06);
-}
-.multi-scoreboard span,
-.multi-scoreboard small {
-  opacity: 0.82;
-}
-.multi-game-status {
-  display: flex;
-  align-items: center;
-  gap: 8px 20px;
-  flex-wrap: wrap;
-}
-.multi-game-status strong {
-  font-size: 1.16rem;
-}
 .multi-bid-history p {
   line-height: 1.6;
 }
-.multi-bids,
 .multi-simple-actions,
-.multi-hand,
-.multi-trick > div {
+.multi-exchange {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
-.multi-bids {
-  max-height: 210px;
-  overflow: auto;
-  padding-right: 4px;
+.multi-exchange {
+  justify-content: center;
+  align-items: center;
 }
-.multi-bids button {
-  white-space: nowrap;
-}
-.multi-hand {
-  margin-top: 12px;
-}
-.multi-hand button,
-.multi-hand span {
-  min-width: 56px;
+.multi-exchange p {
+  width: 100%;
+  margin: 0;
   text-align: center;
-  background: #f8f3e5;
-  color: #21392c;
-  font-weight: 700;
-}
-.multi-hand button:hover:not(:disabled),
-.multi-hand button.selected {
-  background: #f0cb80;
-  color: #1f301f;
-}
-.multi-hand span {
-  padding: 10px 8px;
-  border-radius: 9px;
-}
-.multi-trick span {
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.09);
 }
 .multi-chat {
   max-width: 100%;
+}
+.multi-chat summary {
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.multi-chat summary span {
+  color: #b9cbc3;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.multi-chat[open] summary {
+  margin-bottom: 12px;
 }
 .multi-messages {
   height: 180px;
@@ -219,8 +292,33 @@
 }
 
 @media (max-width: 650px) {
-  .multi-scoreboard {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .multi-room .multi-felt {
+    min-height: 350px;
+    width: calc(100% - 8px);
+  }
+  .multi-felt .player-seat {
+    min-width: 85px;
+    max-width: 112px;
+    gap: 4px;
+    padding: 6px;
+  }
+  .multi-felt .player-seat .avatar {
+    display: none;
+  }
+  .multi-felt .player-seat strong,
+  .multi-felt .player-seat span {
+    max-width: 98px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .multi-table-center {
+    width: min(48%, 200px);
+  }
+  .multi-table-center .open-hands {
+    width: min(80vw, 300px);
+  }
+  .multi-room .multi-hand-area .hand {
+    justify-content: flex-start;
   }
   .multi-table-link {
     flex-direction: column;

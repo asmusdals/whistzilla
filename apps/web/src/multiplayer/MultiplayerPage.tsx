@@ -1,9 +1,16 @@
-import type { Bid, Card, GameCommand, PlayerView } from '@whistzilla/game-core';
+import type {
+  Bid,
+  Card,
+  GameCommand,
+  PlayerView,
+  Seat,
+} from '@whistzilla/game-core';
 import type { TableView } from '@whistzilla/multiplayer/tables';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { CARD_RANK_LABELS, compareHandCards } from '../cards/presentation';
+import { CardVisual } from '../cards/CardVisual';
 import { multiplayerApi, savedToken, saveToken } from './api';
 import './multiplayer.css';
 
@@ -191,9 +198,9 @@ function ActionControls({
   readonly busy: boolean;
 }) {
   const [selected, setSelected] = useState<readonly string[]>([]);
+  const [selectedType, setSelectedType] = useState<Bid['bidType']>('ordinary');
+  const [selectedLevel, setSelectedLevel] = useState(7);
   const legal = game.legalCommands;
-  if (!legal.length)
-    return <p className="multi-waiting">Venter på den næste spiller…</p>;
   const bids = legal.flatMap((command, index) =>
     command.type === 'place-bid' ? [{ command, index }] : [],
   );
@@ -218,33 +225,134 @@ function ActionControls({
       ? [{ command, index }]
       : [],
   );
+  const availableTypes = Object.keys(bidName).filter((type) =>
+    bids.some(({ command }) => command.bid.bidType === type),
+  ) as Bid['bidType'][];
+  const effectiveType = availableTypes.includes(selectedType)
+    ? selectedType
+    : availableTypes[0];
+  const levels: number[] = bids.flatMap(({ command }) =>
+    command.bid.kind === 'numerical' && command.bid.bidType === effectiveType
+      ? [command.bid.level]
+      : [],
+  );
+  const effectiveLevel = levels.includes(selectedLevel)
+    ? selectedLevel
+    : levels[0];
+  const selectedBid = bids.find(({ command }) =>
+    command.bid.kind === 'numerical'
+      ? command.bid.bidType === effectiveType &&
+        command.bid.level === effectiveLevel
+      : command.bid.bidType === effectiveType,
+  );
+  const pass = simple.find(({ command }) => command.type === 'pass');
+  const otherActions = simple.filter(({ command }) => command.type !== 'pass');
 
   return (
-    <section className="multi-actions" aria-label="Dine handlinger">
-      <h3>Din tur</h3>
-      {plays.length === 0 && exchanges.length === 0 && (
-        <div className="multi-hand" aria-label="Din hånd">
-          {[...game.ownHand].sort(compareHandCards).map((card) => (
-            <span key={card.id}>{cardLabel(card)}</span>
-          ))}
-        </div>
-      )}
-      {bids.length > 0 && (
-        <div className="multi-bids">
-          {bids.map(({ command, index }) => (
+    <section
+      className="hand-area multi-hand-area"
+      aria-label="Din hånd og dine handlinger"
+    >
+      <div className="hand">
+        {[...game.ownHand].sort(compareHandCards).map((card) => {
+          const play = plays.find(({ command }) => command.cardId === card.id);
+          const selecting = exchanges.length > 0;
+          const isSelected = selected.includes(card.id);
+          return (
             <button
-              key={index}
-              disabled={busy}
-              onClick={() => void submit(index)}
+              type="button"
+              className={`hand-card ${isSelected ? 'selected-exchange-card' : ''}`}
+              key={card.id}
+              aria-label={`${selecting ? 'Vælg' : 'Spil'} ${cardLabel(card)}`}
+              aria-pressed={selecting ? isSelected : undefined}
+              disabled={busy || (!play && !selecting)}
+              onClick={() => {
+                if (selecting) {
+                  setSelected((current) =>
+                    current.includes(card.id)
+                      ? current.filter((id) => id !== card.id)
+                      : current.length < Math.max(...exchangeCounts)
+                        ? [...current, card.id]
+                        : current,
+                  );
+                } else if (play) void submit(play.index);
+              }}
             >
-              {bidLabel(command.bid)}
+              <CardVisual card={card} />
             </button>
-          ))}
+          );
+        })}
+      </div>
+      {bids.length > 0 && (
+        <div className="bid-controls">
+          <label>
+            <span>Type</span>
+            <select
+              aria-label="Meldingstype"
+              value={effectiveType ?? ''}
+              onChange={(event) =>
+                setSelectedType(event.target.value as Bid['bidType'])
+              }
+            >
+              {availableTypes.map((type) => (
+                <option key={type} value={type}>
+                  {bidName[type]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Niveau</span>
+            <select
+              aria-label="Meldingsniveau"
+              value={effectiveLevel ?? ''}
+              disabled={!levels.length}
+              onChange={(event) => setSelectedLevel(Number(event.target.value))}
+            >
+              {levels.length ? (
+                levels.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))
+              ) : (
+                <option value="">—</option>
+              )}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={busy || !selectedBid}
+            onClick={() => selectedBid && void submit(selectedBid.index)}
+          >
+            Meld
+          </button>
+          {pass && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void submit(pass.index)}
+            >
+              Pas
+            </button>
+          )}
         </div>
       )}
-      {simple.length > 0 && (
+      {bids.length === 0 && pass && (
+        <div className="bid-controls">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void submit(pass.index)}
+          >
+            Pas
+          </button>
+        </div>
+      )}
+      {otherActions.length > 0 && (
         <div className="multi-simple-actions">
-          {simple.map(({ command, index }) => (
+          {otherActions.map(({ command, index }) => (
             <button
               key={index}
               disabled={busy}
@@ -273,44 +381,11 @@ function ActionControls({
           )}
         </div>
       )}
-      {plays.length > 0 && <p>Vælg et fremhævet kort fra din hånd.</p>}
-      {exchanges.length > 0 && (
-        <div className="multi-hand multi-select-hand">
-          {[...game.ownHand].sort(compareHandCards).map((card) => (
-            <button
-              key={card.id}
-              className={selected.includes(card.id) ? 'selected' : ''}
-              aria-pressed={selected.includes(card.id)}
-              onClick={() =>
-                setSelected((current) =>
-                  current.includes(card.id)
-                    ? current.filter((id) => id !== card.id)
-                    : [...current, card.id],
-                )
-              }
-            >
-              {cardLabel(card)}
-            </button>
-          ))}
-        </div>
+      {!legal.length && (
+        <div className="waiting-label">Venter på den næste spiller…</div>
       )}
       {plays.length > 0 && (
-        <div className="multi-hand">
-          {[...game.ownHand].sort(compareHandCards).map((card) => {
-            const play = plays.find(
-              ({ command }) => command.cardId === card.id,
-            );
-            return (
-              <button
-                key={card.id}
-                disabled={busy || !play}
-                onClick={() => play && void submit(play.index)}
-              >
-                {cardLabel(card)}
-              </button>
-            );
-          })}
-        </div>
+        <div className="play-guidance">Vælg et fremhævet kort fra din hånd</div>
       )}
     </section>
   );
@@ -344,8 +419,13 @@ function Chat({
 }) {
   const [text, setText] = useState('');
   return (
-    <section className="multi-panel multi-chat" aria-label="Bordchat">
-      <h2>Chat</h2>
+    <details className="multi-panel multi-chat" aria-label="Bordchat">
+      <summary>
+        Chat{' '}
+        {view.messages.length > 0 && (
+          <span>· {view.messages.length} beskeder</span>
+        )}
+      </summary>
       <div className="multi-messages" role="log" aria-live="polite">
         {view.messages.map((message) => (
           <p key={message.id}>
@@ -369,6 +449,146 @@ function Chat({
         />
         <button disabled={!text.trim()}>Send</button>
       </form>
+    </details>
+  );
+}
+
+function relativeSeat(seat: Seat, viewer: Seat): Seat {
+  return ((seat - viewer + 4) % 4) as Seat;
+}
+
+function currentActor(game: PlayerView): Seat | null {
+  if (game.phase === 'bidding') return game.biddingActor;
+  if (game.phase === 'contract-setup') return game.contractActor;
+  if (game.phase !== 'trick-play') return null;
+  const lastPlayed = game.currentTrick.at(-1);
+  if (lastPlayed) return ((lastPlayed.seat + 1) % 4) as Seat;
+  const lastWinner = game.publicEvents.findLast(
+    (event) => event.type === 'trick-won',
+  );
+  return lastWinner?.seat ?? game.firstPlayer;
+}
+
+function TableScene({
+  view,
+  seconds,
+  busy,
+  start,
+}: {
+  readonly view: TableView;
+  readonly seconds: number | null;
+  readonly busy: boolean;
+  readonly start: () => void;
+}) {
+  const game = view.game;
+  const viewer = view.seat ?? 0;
+  const active = game ? currentActor(game) : null;
+  const trick = view.recentTrick.length
+    ? view.recentTrick
+    : (game?.currentTrick ?? []);
+  const status =
+    view.table.status === 'lobby'
+      ? 'Venter på at bordet starter'
+      : view.table.status === 'finished'
+        ? 'Bordet er afsluttet'
+        : view.seat === null
+          ? 'Du er i kø til næste runde'
+          : game?.phase === 'scoring'
+            ? 'Runden er slut · ny runde starter snart'
+            : game?.phase === 'bidding'
+              ? 'Budrunde'
+              : game?.phase === 'contract-setup'
+                ? 'Kontrakten gøres klar'
+                : `Stik ${(game?.completedTrickCount ?? 0) + 1} af 13`;
+
+  return (
+    <section className="table multi-felt" aria-label="Whistbord">
+      {view.players.map((player) => {
+        const position = relativeSeat(player.seat, viewer);
+        const count =
+          player.seat === view.seat
+            ? game?.ownHand.length
+            : game?.opponents.find((other) => other.seat === player.seat)
+                ?.cardCount;
+        return (
+          <div
+            key={player.seat}
+            className={`${position === 0 ? 'human-seat' : `player-seat seat-${position}`} ${active === player.seat ? 'active-seat' : ''} ${player.isBot ? 'multi-bot-seat' : ''}`}
+            aria-label={`${player.tag}, ${player.isBot ? 'bot' : player.connected ? 'online' : 'forbindelse afbrudt'}, ${view.scores[player.seat]} point`}
+          >
+            <div className="avatar" aria-hidden="true">
+              {player.tag[0]}
+            </div>
+            <div>
+              <strong>
+                {player.seat === view.seat ? `${player.tag} · dig` : player.tag}
+              </strong>
+              <span>
+                {player.isBot ? 'Bot · ' : player.connected ? '' : 'Offline · '}
+                {view.scores[player.seat]} point
+              </span>
+              {game && (
+                <span>
+                  {count ?? 0} kort · {game.trickCounts[player.seat]} stik
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <div className="table-center multi-table-center">
+        {game?.phase === 'trick-play' || game?.phase === 'scoring' ? (
+          <div
+            className="current-trick"
+            aria-label={
+              view.recentTrick.length ? 'Sidste stik' : 'Aktuelt stik'
+            }
+          >
+            {trick.map(({ seat, card }) => (
+              <div
+                key={`${seat}-${card.id}`}
+                className={`trick-card trick-seat-${relativeSeat(seat, viewer)} multi-trick-card`}
+              >
+                <CardVisual card={card} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="kitty" aria-label="Byttekort">
+            {[0, 1, 2].map((card) => (
+              <div className="card-back" key={card} />
+            ))}
+          </div>
+        )}
+        <p aria-live="polite">{status}</p>
+        {view.table.status === 'lobby' && view.isHost && (
+          <button className="multi-primary" disabled={busy} onClick={start}>
+            Start spillet
+          </button>
+        )}
+        {view.table.status === 'lobby' && !view.isHost && (
+          <span className="trick-result">Opretteren starter spillet</span>
+        )}
+        {seconds !== null && game?.phase !== 'scoring' && (
+          <span className="trick-result">{seconds} sekunder tilbage</span>
+        )}
+        {game?.openHands.map((hand) => (
+          <div
+            className="open-hands"
+            key={hand.seat}
+            aria-label={`Åben hånd: ${view.players[hand.seat]?.tag ?? 'Spiller'}`}
+          >
+            <div className="open-hand">
+              <span>{view.players[hand.seat]?.tag}</span>
+              <div>
+                {[...hand.cards].sort(compareHandCards).map((card) => (
+                  <CardVisual key={card.id} card={card} />
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -453,13 +673,6 @@ export function MultiplayerRoomPage() {
     }
   };
   const game = view?.game;
-  const sortedHand = useMemo(
-    () => (game ? [...game.ownHand].sort(compareHandCards) : []),
-    [game],
-  );
-  const activeTrick = view?.recentTrick.length
-    ? view.recentTrick
-    : (game?.currentTrick ?? []);
   const seconds =
     view?.turnDeadline && now > 0
       ? Math.max(0, Math.ceil((view.turnDeadline - now) / 1000))
@@ -523,147 +736,90 @@ export function MultiplayerRoomPage() {
               </button>
             )}
           </div>
-          <section
-            className="multi-panel multi-scoreboard"
-            aria-label="Spillere og point"
-          >
-            {view.players.map((player) => (
-              <div key={player.seat}>
-                <strong>{player.tag}</strong>
-                <span>
-                  {player.isBot
-                    ? 'Bot'
-                    : player.connected
-                      ? 'Online'
-                      : 'Forbindelse afbrudt'}{' '}
-                  · {view.scores[player.seat]} point
-                </span>
-                {game && <small>{game.trickCounts[player.seat]} stik</small>}
-              </div>
-            ))}
-          </section>
-          {view.table.status === 'lobby' && (
-            <section className="multi-panel">
-              <h2>Klar til spil?</h2>
-              <p>
-                Ledige pladser spilles af bots. Opretteren bestemmer, hvornår
-                bordet starter.
-              </p>
-              {view.isHost && (
-                <button
-                  className="multi-primary"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(() => multiplayerApi.start(tableId, token!))
-                  }
-                >
-                  Start spillet
-                </button>
-              )}
-            </section>
-          )}
-          {view.seat === null && view.table.status === 'playing' && (
-            <section className="multi-panel">
-              <h2>Du er i kø</h2>
-              <p>Du får en botplads, når næste runde starter.</p>
-            </section>
-          )}
           {game && (
-            <>
-              <section
-                className="multi-panel multi-game-status"
-                aria-live="polite"
-              >
-                <strong>
-                  {game.phase === 'scoring'
-                    ? 'Runden er slut'
-                    : game.phase === 'bidding'
-                      ? 'Budrunde'
-                      : game.phase === 'contract-setup'
-                        ? 'Kontrakten gøres klar'
-                        : `Stik ${game.completedTrickCount + 1} af 13`}
-                </strong>
-                <span>
-                  {game.currentBid && game.phase === 'bidding'
-                    ? `Aktuelt bud: ${bidLabel(game.currentBid)}`
-                    : game.winningBid
-                      ? `Kontrakt: ${bidLabel(game.winningBid)}`
-                      : 'Afventer første bud'}
+            <div
+              className="contract-strip"
+              role="region"
+              aria-label={
+                game.phase === 'bidding' ? 'Aktuel melding' : 'Kontrakt'
+              }
+            >
+              <span className="contract-strip-label">
+                {game.phase === 'bidding' ? 'Aktuel melding' : 'Kontrakt'}
+              </span>
+              <strong>
+                {game.phase === 'bidding'
+                  ? game.currentBid
+                    ? bidLabel(game.currentBid)
+                    : 'Ingen melding endnu'
+                  : game.winningBid
+                    ? bidLabel(game.winningBid)
+                    : 'Afventer kontrakt'}
+              </strong>
+              {game.trump && <span>Trumf: {suitName[game.trump]}</span>}
+              {game.phase === 'bidding' && (
+                <span className="contract-strip-next">
+                  Tur: {view.players[game.biddingActor]?.tag}
                 </span>
-                {game.trump && <span>Trumf: {suitName[game.trump]}</span>}
-                {seconds !== null && game.phase !== 'scoring' && (
-                  <span>{seconds} sekunder tilbage på turen</span>
-                )}
-                {game.phase === 'scoring' && (
-                  <span>Ny runde starter automatisk om lidt.</span>
-                )}
-              </section>
-              {bids.length > 0 && (
-                <section className="multi-panel multi-bid-history">
-                  <h2>Bud</h2>
-                  <p>
-                    {bids
-                      .map(
-                        (event) =>
-                          `${view.players[event.seat]?.tag ?? 'Spiller'}: ${event.type === 'bid-placed' ? bidLabel(event.bid) : 'pas'}`,
-                      )
-                      .join(' · ')}
-                  </p>
-                </section>
               )}
-              {game.phase === 'trick-play' && (
-                <section className="multi-panel multi-trick">
-                  <h2>
-                    {view.recentTrick.length ? 'Sidste stik' : 'Aktuelt stik'}
-                  </h2>
-                  <div>
-                    {activeTrick.map(({ seat, card }) => (
-                      <span key={`${seat}-${card.id}`}>
-                        {view.players[seat]?.tag ?? 'Spiller'}:{' '}
-                        <b>{cardLabel(card)}</b>
-                      </span>
-                    ))}
-                  </div>
-                </section>
-              )}
-              {game.phase === 'scoring' && game.score && (
-                <section className="multi-panel">
-                  <h2>Rundens resultat</h2>
-                  <p>
-                    {game.score.contractSucceeded
-                      ? 'Kontrakten blev vundet.'
-                      : 'Kontrakten blev tabt.'}
-                  </p>
-                  <p>
-                    {game.score.deltas
-                      .map(
-                        (delta, seat) =>
-                          `${view.players[seat]?.tag ?? 'Spiller'}: ${delta >= 0 ? '+' : ''}${delta}`,
-                      )
-                      .join(' · ')}
-                  </p>
-                </section>
-              )}
-              {game.legalCommands.length > 0 ? (
-                <ActionControls
-                  key={game.revision}
-                  game={game}
-                  submit={submit}
-                  busy={busy}
-                />
-              ) : (
-                sortedHand.length > 0 && (
-                  <section className="multi-panel">
-                    <h2>Din hånd</h2>
-                    <div className="multi-hand">
-                      {sortedHand.map((card) => (
-                        <span key={card.id}>{cardLabel(card)}</span>
-                      ))}
-                    </div>
-                  </section>
-                )
-              )}
-            </>
+            </div>
+          )}
+          <TableScene
+            view={view}
+            seconds={seconds}
+            busy={busy}
+            start={() => void run(() => multiplayerApi.start(tableId, token!))}
+          />
+          {game &&
+            view.table.status === 'playing' &&
+            game.phase !== 'scoring' && (
+              <ActionControls
+                key={`${view.table.round}-${game.phase}`}
+                game={game}
+                submit={submit}
+                busy={busy}
+              />
+            )}
+          {view.seat === null && view.table.status === 'playing' && (
+            <p className="multi-waiting">
+              Du får en botplads, når næste runde starter.
+            </p>
+          )}
+          {game?.phase === 'scoring' && game.score && (
+            <section
+              className="multi-panel multi-round-result"
+              aria-label="Rundens resultat"
+            >
+              <h2>
+                {game.score.contractSucceeded
+                  ? 'Kontrakten blev vundet'
+                  : 'Kontrakten blev tabt'}
+              </h2>
+              <div className="round-score-grid">
+                {game.score.deltas.map((delta, seat) => (
+                  <span key={seat}>
+                    <strong>{view.players[seat]?.tag}</strong>
+                    <b>
+                      {delta >= 0 ? '+' : ''}
+                      {delta}
+                    </b>
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+          {bids.length > 0 && (
+            <details className="multi-panel multi-bid-history">
+              <summary>Bud i denne runde</summary>
+              <p>
+                {bids
+                  .map(
+                    (event) =>
+                      `${view.players[event.seat]?.tag ?? 'Spiller'}: ${event.type === 'bid-placed' ? bidLabel(event.bid) : 'pas'}`,
+                  )
+                  .join(' · ')}
+              </p>
+            </details>
           )}
           <Chat view={view} send={send} />
           {view.table.status === 'finished' && (
