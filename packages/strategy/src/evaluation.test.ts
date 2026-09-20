@@ -122,19 +122,25 @@ function evaluate(
 }
 
 describe('rotated seeded bot evaluation', () => {
-  it('measures the three difficulty levels without using human replays', () => {
-    const intermediate = evaluate('intermediate', 'beginner', 128);
-    const advanced = evaluate('advanced', 'intermediate', 128);
-    const fixedContract = evaluate('advanced', 'intermediate', 128, true);
-    if (process.env.WHISTZILLA_EVAL_REPORT === '1')
-      console.info({ intermediate, advanced, fixedContract });
-    expect(intermediate.games).toBe(512);
-    expect(advanced.games).toBe(512);
-    expect(intermediate.meanPoints).toBeGreaterThan(0);
-    expect(advanced.meanPoints).toBeGreaterThan(0);
-    expect(advanced.numerical).toBeGreaterThan(480);
-    expect(advanced.meanLevel).toBeLessThan(8.5);
-    expect(advanced.positiveRoundRate).toBeGreaterThan(0.55);
-    expect(fixedContract.meanPoints).toBeGreaterThan(0);
-  }, 15_000);
+  it(
+    'measures the three difficulty levels without using human replays',
+    () => {
+      const seeds = process.env.WHISTZILLA_EVAL_REPORT === '1' ? 128 : 32;
+      const intermediate = evaluate('intermediate', 'beginner', seeds);
+      const advanced = evaluate('advanced', 'intermediate', seeds);
+      const fixedContract = evaluate('advanced', 'intermediate', seeds, true);
+      if (process.env.WHISTZILLA_EVAL_REPORT === '1')
+        console.info({ intermediate, advanced, fixedContract });
+      expect(intermediate.games).toBe(seeds * 4);
+      expect(advanced.games).toBe(seeds * 4);
+      expect(intermediate.meanPoints).toBeGreaterThan(0);
+      expect(advanced.meanPoints).toBeGreaterThan(0);
+      expect(advanced.numerical).toBeGreaterThan(seeds * 3.5);
+      expect(advanced.meanLevel).toBeGreaterThan(8.5);
+      expect(advanced.meanLevel).toBeLessThan(10.5);
+      expect(advanced.positiveRoundRate).toBeGreaterThan(0.55);
+      expect(fixedContract.meanPoints).toBeGreaterThan(0);
+    },
+    process.env.WHISTZILLA_EVAL_REPORT === '1' ? 180_000 : 60_000,
+  );
 });

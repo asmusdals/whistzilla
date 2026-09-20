@@ -904,11 +904,11 @@ function expectedNumericalPoints(
 
 function bidEstimate(view: PlayerView, bid: Bid, profile: StrategyProfile) {
   const calibration =
-    profile === 'beginner' ? -0.4 : profile === 'advanced' ? 0.1 : 0;
+    profile === 'beginner' ? -0.25 : profile === 'advanced' ? 0.1 : 0;
   if (bid.kind === 'special') {
     const safety = specialSafety(view.ownHand) + calibration;
     const breakEvenSafety = {
-      sol: 2.8,
+      sol: 1.8,
       'pure-sol': 4.2,
       'open-laydown': 5.5,
       'super-laydown': 7,
@@ -927,12 +927,12 @@ function bidEstimate(view: PlayerView, bid: Bid, profile: StrategyProfile) {
 
   const preferredTrump = bid.bidType === 'good' ? 'clubs' : undefined;
   const ownStrength = normalHandEstimate(view.ownHand, preferredTrump);
-  // Before partnerships are known, the four seats are symmetric and a team
-  // starts around half of the 13 tricks. Move that baseline up or down by how
-  // far this hand lies from an average 13-card hand instead of pretending the
-  // unknown partner contributes a small fixed number of tricks.
+  // Before partnerships are known, start close to half the tricks and move
+  // the estimate with the bidder's actual hand strength. This matters more
+  // than a fixed partner assumption: only a stronger hand should justify a
+  // higher contract. Auction-mix fixtures constrain this provisional model.
   const averageHandStrength = 2;
-  const partnershipBaseline = 6.5;
+  const partnershipBaseline = 7.0;
   const contractAdjustment =
     bid.bidType === 'ordinary'
       ? 0
@@ -943,14 +943,14 @@ function bidEstimate(view: PlayerView, bid: Bid, profile: StrategyProfile) {
           : -0.9;
   const expectedTeamTricks =
     partnershipBaseline +
-    (ownStrength - averageHandStrength) * 0.55 +
+    (ownStrength - averageHandStrength) * 1.0 +
     contractAdjustment +
     calibration;
   // A bid is worth its score across all plausible trick totals, not just the
   // chance of reaching its target. This captures both overtricks and the
   // increasing stake for a failed high contract.
   return (
-    expectedNumericalPoints(bid, view.viewer, expectedTeamTricks, 1.6) * 25
+    expectedNumericalPoints(bid, view.viewer, expectedTeamTricks, 1.4) * 25
   );
 }
 
@@ -979,16 +979,18 @@ function continuationChance(
   profile: StrategyProfile,
 ): number {
   const base =
-    profile === 'beginner' ? 0.55 : profile === 'advanced' ? 0.8 : 0.7;
+    profile === 'beginner' ? 0.7 : profile === 'advanced' ? 0.9 : 0.82;
+  // Give an early contest room to develop; reduce marginal overcalls once
+  // several bids have been made or the table has reached double digits.
   const priorRaises = Math.max(
     0,
-    view.publicEvents.filter((event) => event.type === 'bid-placed').length - 1,
+    view.publicEvents.filter((event) => event.type === 'bid-placed').length - 3,
   );
   const levelPressure =
     view.currentBid?.kind === 'numerical'
-      ? Math.max(0, view.currentBid.level - 7)
-      : 4;
-  return base * Math.pow(0.7, priorRaises) * Math.pow(0.78, levelPressure);
+      ? Math.max(0, view.currentBid.level - 9)
+      : 3;
+  return base * Math.pow(0.8, priorRaises) * Math.pow(0.65, levelPressure);
 }
 
 function exchangeValue(view: PlayerView, cardId: CardId): number {

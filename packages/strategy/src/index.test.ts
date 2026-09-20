@@ -115,7 +115,7 @@ describe('practical strategy', () => {
     expect(decisions).toContain('pass');
   });
 
-  it('sometimes lets a 7 ordinary opening stand instead of forcing a raise', () => {
+  it('rarely leaves an ordinary 7 opening as the final contract', () => {
     const unchallenged = Array.from({ length: 100 }, (_, seed) => {
       let state = createGame({ seed, dealer: 3, host: 0 });
       const opening = projectPlayerView(state, 0).legalCommands.find(
@@ -137,8 +137,7 @@ describe('practical strategy', () => {
       );
     }).filter(Boolean).length;
 
-    expect(unchallenged).toBeGreaterThanOrEqual(20);
-    expect(unchallenged).toBeLessThanOrEqual(50);
+    expect(unchallenged).toBeLessThanOrEqual(10);
   });
 
   it('keeps bidding decisions invariant when inaccessible cards move', () => {
