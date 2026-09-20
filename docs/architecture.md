@@ -34,10 +34,12 @@ Next.js is not recommended initially: Whistzilla does not need server rendering,
 ```text
 apps/
   web/                 React UI, browser adapters, routes, assets
+  multiplayer-api/     Cloudflare Worker and Durable Object transport
 packages/
   game-core/           Rules, state, commands, events, projections
   strategy/            Bots, beliefs, bidding and play evaluators
   coaching/            Explanation plans, comparison and localization data
+  multiplayer/         Authoritative table/session boundary
 docs/                  Product, rules, architecture and roadmap
 ```
 
@@ -46,6 +48,8 @@ Dependencies point inward:
 ```text
 web -> coaching -> strategy -> game-core
 web -----------------------> game-core
+web --types-------------> multiplayer
+multiplayer-api -> multiplayer -> strategy -> game-core
 ```
 
 `game-core` must not depend on any other workspace package or on React, DOM APIs, IndexedDB, localization, timers, or network APIs.
@@ -194,12 +198,13 @@ Reduced-motion preference bypasses the deal reveal and collapses CSS animation.
 Optional synthesized action tones are presentation-only, default off, and persist
 as a local preference; they never influence deterministic transition timing.
 
-React Router owns the top-level `/`, `/training`, and `/points` routes. The home
-screen is a presentation/navigation boundary; Training owns the persisted local
-game session, and the points calculator calls `game-core` scoring directly.
-Multiplayer is now the next major milestone; the current Training route remains
-local until an authoritative service exists. See `docs/multiplayer.md` for the
-first playable room boundary.
+React Router owns `/`, `/training`, `/points`, `/multiplayer`, and
+`/multiplayer/:tableId`. The home screen is a presentation/navigation boundary;
+Training owns the persisted local game session, and the points calculator calls
+`game-core` scoring directly. Multiplayer uses a separate server-owned session;
+the client receives only its seat projection and never persists game state.
+The production home entry is enabled only when a deployed API URL is configured.
+See `docs/multiplayer.md` for the implemented first room boundary.
 
 After scoring, Training presents all four per-round deltas and starts the next
 round with the dealer rotated one seat clockwise. Starting over before a round
@@ -318,11 +323,27 @@ Use Netlify for the static Vite build, production deployment from `main`, and pu
 Multiplayer adds a separate authoritative service rather than moving rules into UI or duplicating them:
 
 - The server owns `GameState` and runs the same `applyCommand` validation.
-- Clients send versioned commands and receive events plus their own projected view.
+- Clients send a legal-command index and expected revision and receive their
+  own projected view; the server maps the index to its current legal command.
 - Per-seat projections prevent hidden-card disclosure over the network.
-- Private rooms map invite codes/links to server-owned games.
+- Publicly listed named rooms have shareable links with opaque room IDs.
 - Reconnect uses authenticated seat tokens, acknowledged revisions, and event/snapshot recovery.
-- Persistence stores authoritative snapshots and append-only accepted events.
-- Transport, seat authentication, rate limiting, room expiry, and hosting are chosen in the first server slice.
+- A SQLite-backed Durable Object stores authoritative JSON snapshots, including
+  private seat tokens. The first version does not store an append-only command
+  log or offer multiplayer replays.
+- HTTP polling, bearer seat tokens, bounded chat/room creation, 24-hour idle
+  expiry, and Cloudflare Workers Free are used for the first server slice.
 
-`@whistzilla/multiplayer` is the initial server-side boundary. Its in-memory `RoomService` owns `GameState`, issues cryptographically random room IDs and private seat tokens, waits for four occupied seats, validates commands with `applyCommand`, and returns only `PlayerView` plus public events. It has no transport or durable store yet. The current static client does not contain room, database, or authentication infrastructure. The first playable room boundary and delivery order are specified in `docs/multiplayer.md`.
+`@whistzilla/multiplayer` contains the original four-human `RoomService` and
+the new `TableService` for public named rooms, bots in empty seats, waiting
+players, reconnect, chat, cumulative score, turn deadlines, and dealer rotation.
+`apps/multiplayer-api` binds a single low-traffic `TableService` to a
+SQLite-backed Durable Object. Its alarms advance timeouts and round boundaries
+even without active polling. The Worker returns a seat-specific `PlayerView`
+with old card-play events removed from the multiplayer response. Only the
+current trick and a 2.5-second completed-trick display contain played cards;
+bots retain their legitimate public-memory history on the server. The invite
+URL contains only the room ID; a reconnect token stays in the player's local
+browser storage and Authorization header. Netlify remains the static frontend
+host, while the API has to be deployed to the product owner's free Cloudflare
+account before production multiplayer is enabled.

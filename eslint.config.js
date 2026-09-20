@@ -10,6 +10,7 @@ export default tseslint.config(
     ignores: [
       '**/dist/**',
       '**/coverage/**',
+      '**/.wrangler/**',
       'playwright-report/**',
       'test-results/**',
     ],
@@ -33,9 +34,14 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.{test,spec}.{ts,tsx}', 'playwright.config.ts'],
+    files: [
+      '**/*.{test,spec}.{ts,tsx}',
+      'playwright.config.ts',
+      'playwright.multiplayer.config.ts',
+      'apps/multiplayer-api/*.mjs',
+    ],
     languageOptions: {
-      globals: globals.node,
+      globals: { ...globals.node, fetch: 'readonly' },
     },
   },
   prettier,
